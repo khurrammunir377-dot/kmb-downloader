@@ -86,31 +86,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Called when app comes to foreground — scan clipboard for new links */
     fun checkClipboardAndSave() {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val clipboard = getApplication<Application>()
-                    .getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    .getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return@launch
                 val clip = clipboard.primaryClip ?: return@launch
                 if (clip.itemCount == 0) return@launch
 
-                val text = clip.getItemAt(0).coerceToText(getApplication()).toString().trim()
-                if (text.isBlank()) return@launch
+                var newCount = 0
+                var lastPlatform = "Video"
 
-                val detectedUrl = DownloadHelper.extractUrl(text) ?: return@launch
-                if (DownloadHelper.isSocialMediaLink(detectedUrl)) {
-                    val clean = DownloadHelper.cleanUrl(detectedUrl)
-                    val existing = savedDao.findByUrl(clean)
-                    if (existing == null) {
-                        val platform = DownloadHelper.detectPlatform(clean)
-                        savedDao.insert(
-                            SavedLink(
-                                url = clean,
-                                platform = platform,
-                                title = "$platform Video",
-                                detectedAt = System.currentTimeMillis()
-                            )
-                        )
-                        _message.value = "New $platform link detected ✓"
+                for (i in 0 until clip.itemCount) {
+                    val rawText = clip.getItemAt(i)?.coerceToText(getApplication())?.toString()?.trim() ?: continue
+                    if (rawText.isBlank()) continue
+
+                    val urls = DownloadHelper.extractAllUrls(rawText)
+                    for (rawUrl in urls) {
+                        val clean = DownloadHelper.cleanUrl(rawUrl)
+                        if (DownloadHelper.isSocialMediaLink(clean)) {
+                            val existing = savedDao.findByUrl(clean)
+                            if (existing == null) {
+                                val platform = DownloadHelper.detectPlatform(clean)
+                                lastPlatform = platform
+                                savedDao.insert(
+                                    SavedLink(
+                                        url = clean,
+                                        platform = platform,
+                                        title = "$platform Video",
+                                        detectedAt = System.currentTimeMillis()
+                                    )
+                                )
+                                newCount++
+                            }
+                        }
+                    }
+                }
+
+                if (newCount > 0) {
+                    _message.value = if (newCount == 1) {
+                        "New $lastPlatform link detected & saved ✓"
+                    } else {
+                        "$newCount new video links detected & saved ✓"
                     }
                 }
             } catch (e: Throwable) {
@@ -122,16 +138,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun pasteFromClipboard(text: String) {
         val trimmed = text.trim()
         if (trimmed.isNotBlank()) {
-            val detected = DownloadHelper.extractUrl(trimmed) ?: trimmed
-            val clean = DownloadHelper.cleanUrl(detected)
-            _url.value = clean
-            viewModelScope.launch {
-                if (DownloadHelper.isSocialMediaLink(clean)) {
-                    val existing = savedDao.findByUrl(clean)
-                    if (existing == null) {
-                        val platform = DownloadHelper.detectPlatform(clean)
-                        savedDao.insert(SavedLink(url = clean, platform = platform, title = "$platform Video"))
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val urls = DownloadHelper.extractAllUrls(trimmed)
+                if (urls.isNotEmpty()) {
+                    _url.value = urls.first()
+                    var newCount = 0
+                    for (rawUrl in urls) {
+                        val clean = DownloadHelper.cleanUrl(rawUrl)
+                        if (DownloadHelper.isSocialMediaLink(clean)) {
+                            val existing = savedDao.findByUrl(clean)
+                            if (existing == null) {
+                                val platform = DownloadHelper.detectPlatform(clean)
+                                savedDao.insert(
+                                    SavedLink(
+                                        url = clean,
+                                        platform = platform,
+                                        title = "$platform Video",
+                                        detectedAt = System.currentTimeMillis()
+                                    )
+                                )
+                                newCount++
+                            }
+                        }
                     }
+                    if (newCount > 1) {
+                        _message.value = "$newCount links added to Saved Links ✓"
+                    }
+                } else {
+                    _url.value = trimmed
                 }
             }
         }
@@ -354,6 +388,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { savedDao.delete(id) }
     }
 
+    fun downloadAllSaved() {
+        val pending = savedLinks.value.filter { !it.isDownloaded }
+        if (pending.isEmpty()) {
+            _message.value = "No pending links to download"
+            return
+        }
+        viewModelScope.launch {
+            _message.value = "Starting ${pending.size} downloads…"
+            for (link in pending) {
+                startDownload(link.url)
+            }
+        }
+    }
+
     fun clearSavedLinks() {
         viewModelScope.launch { savedDao.clearAll() }
     }
@@ -366,6 +414,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _message.value = null
     }
 
-    fun formatDate(timestamp: Long): String =
-        SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault()).format(Date(timestamp))
+    fun formatDate(timestamp: Long): String {
+        return try {
+            if (timestamp <= 0L) ""
+            else SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault()).format(Date(timestamp))
+        } catch (_: Exception) {
+            ""
+        }
+    }
 }

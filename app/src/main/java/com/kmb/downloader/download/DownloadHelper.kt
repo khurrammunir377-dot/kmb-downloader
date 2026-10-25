@@ -62,6 +62,27 @@ object DownloadHelper {
     }
 
     /**
+     * Extracts ALL valid video/media URLs from text (multi-line pastes, lists of 5+ links, etc.).
+     */
+    fun extractAllUrls(text: String): List<String> {
+        val sample = text.take(16384).trim()
+        val matcher = URL_PATTERN.matcher(sample)
+        val results = mutableListOf<String>()
+        val seen = mutableSetOf<String>()
+
+        while (matcher.find()) {
+            val candidate = matcher.group()
+            val cleaned = cleanUrl(candidate)
+            if (isSocialMediaLink(cleaned) || isSocialMediaLink(candidate) || (candidate.startsWith("http") && candidate.contains("."))) {
+                if (seen.add(cleaned)) {
+                    results.add(cleaned)
+                }
+            }
+        }
+        return results
+    }
+
+    /**
      * Clean and preserve critical video parameters.
      * Never destroys Facebook watch '?v=' or required query parameters.
      */

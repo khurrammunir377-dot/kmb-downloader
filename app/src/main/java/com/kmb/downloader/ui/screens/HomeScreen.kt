@@ -293,6 +293,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                 Spacer(Modifier.height(14.dp))
 
                 // Prompt subtitle below the rotating orb
+                val pendingSavedCount = savedLinks.count { !it.isDownloaded }
                 Text(
                     text = if (isEngineLoading) {
                         "Loading engine… please wait before downloading"
@@ -300,7 +301,13 @@ fun HomeScreen(viewModel: MainViewModel) {
                         if (downloadProgress <= 0f) "Connecting to ${activeDownload?.platform ?: "video"}…"
                         else "Downloading ${activeDownload?.platform} • ${downloadProgress.toInt()}%"
                     } else if (hasReadyLink) {
-                        "Link Ready: ${latestPending?.title ?: latestPending?.url ?: url}\nTap the orb to download now!"
+                        if (url.isNotBlank()) {
+                            "Link Ready to Download\nTap the orb to start now!"
+                        } else if (pendingSavedCount > 1) {
+                            "$pendingSavedCount Links Saved & Ready!\nTap the orb to start downloading, or scroll down to view all."
+                        } else {
+                            "Link Ready: ${latestPending?.title ?: latestPending?.url ?: url}\nTap the orb to download now!"
+                        }
                     } else {
                         "Copy a video link anywhere on your phone,\nthen tap the orb to download immediately."
                     },
@@ -406,6 +413,7 @@ fun HomeScreen(viewModel: MainViewModel) {
             }
 
             // ===== SAVED LINKS =====
+            val pendingCount = savedLinks.count { !it.isDownloaded }
             item {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -414,11 +422,16 @@ fun HomeScreen(viewModel: MainViewModel) {
                     Icon(Icons.Rounded.Bookmark, contentDescription = null, tint = KmbPrimary)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Saved Links",
+                        text = if (savedLinks.isNotEmpty()) "Saved Links (${savedLinks.size})" else "Saved Links",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.weight(1f))
+                    if (pendingCount > 1) {
+                        TextButton(onClick = { viewModel.downloadAllSaved() }) {
+                            Text("Download All ($pendingCount)", color = KmbSecondary, fontWeight = FontWeight.Bold)
+                        }
+                    }
                     IconButton(onClick = { viewModel.checkClipboardAndSave() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Scan clipboard", tint = KmbSecondary)
                     }
@@ -441,21 +454,16 @@ fun HomeScreen(viewModel: MainViewModel) {
                     }
                 }
             } else {
-                itemsIndexed(savedLinks, key = { _, item -> item.id }) { _, link ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn(tween(300)) + slideInVertically(
-                            initialOffsetY = { it / 3 },
-                            animationSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                        )
-                    ) {
-                        SavedLinkCard(
-                            link = link,
-                            dateText = viewModel.formatDate(link.detectedAt),
-                            onDownload = { viewModel.startDownload(link.url) },
-                            onDelete = { viewModel.deleteSavedLink(link.id) }
-                        )
-                    }
+                items(
+                    items = savedLinks,
+                    key = { link -> "saved_${link.id}_${link.url.hashCode()}" }
+                ) { link ->
+                    SavedLinkCard(
+                        link = link,
+                        dateText = viewModel.formatDate(link.detectedAt),
+                        onDownload = { viewModel.startDownload(link.url) },
+                        onDelete = { viewModel.deleteSavedLink(link.id) }
+                    )
                 }
             }
 
@@ -468,7 +476,7 @@ fun HomeScreen(viewModel: MainViewModel) {
                     Icon(Icons.Default.History, contentDescription = null, tint = KmbPrimary)
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Download History",
+                        text = if (downloads.isNotEmpty()) "Download History (${downloads.size})" else "Download History",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -491,7 +499,10 @@ fun HomeScreen(viewModel: MainViewModel) {
                     )
                 }
             } else {
-                items(downloads, key = { it.id }) { item ->
+                items(
+                    items = downloads,
+                    key = { item -> "download_${item.id}_${item.url.hashCode()}" }
+                ) { item ->
                     val liveP = liveProgressMap[item.id]
                     DownloadHistoryCard(
                         item = item,
