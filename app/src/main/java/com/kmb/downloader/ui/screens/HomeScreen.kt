@@ -408,140 +408,6 @@ fun HomeScreen(
                 }
             }
 
-            // WhatsApp Status Saver Quick Banner
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { onNavigateToWhatsAppStatus() }
-                        .border(
-                            1.dp,
-                            Brush.horizontalGradient(
-                                listOf(Color(0xFF25D366).copy(alpha = 0.6f), KmbSecondary.copy(alpha = 0.35f))
-                            ),
-                            RoundedCornerShape(14.dp)
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF13271F).copy(alpha = 0.85f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF25D366)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Visibility,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "WhatsApp Status Saver",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    ),
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "View, save & share recent statuses",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                    color = Color(0xFF25D366)
-                                )
-                            }
-                        }
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowForwardIos,
-                            contentDescription = "Open",
-                            tint = Color(0xFF25D366),
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-
-            // AI Media Studio Quick Banner
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { onNavigateToAiStudio() }
-                        .border(
-                            1.dp,
-                            Brush.horizontalGradient(
-                                listOf(Color(0xFF8B5CF6).copy(alpha = 0.7f), Color(0xFFEC4899).copy(alpha = 0.45f))
-                            ),
-                            RoundedCornerShape(14.dp)
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF1E162B).copy(alpha = 0.9f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFFEC4899)))),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.AutoFixHigh,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "AI Media Studio",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    ),
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "Photo BG remover • Text eraser • Video delogo",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                    color = Color(0xFFA78BFA)
-                                )
-                            }
-                        }
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowForwardIos,
-                            contentDescription = "Open",
-                            tint = Color(0xFFA78BFA),
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-
             // Engine status banner
             item {
                 AnimatedVisibility(
@@ -1033,7 +899,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v3.8.0", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v3.9.0", fontWeight = FontWeight.Bold)
                 }
             },
             text = {

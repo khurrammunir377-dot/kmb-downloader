@@ -12,7 +12,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,9 +26,11 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.kmb.downloader.ui.components.KmbBottomNav
 import com.kmb.downloader.ui.screens.AiStudioScreen
 import com.kmb.downloader.ui.screens.HomeScreen
 import com.kmb.downloader.ui.screens.SplashScreen
+import com.kmb.downloader.ui.screens.VipProScreen
 import com.kmb.downloader.ui.screens.WhatsAppStatusScreen
 import com.kmb.downloader.ui.theme.KMBDownloaderTheme
 import com.kmb.downloader.viewmodel.MainViewModel
@@ -55,10 +60,10 @@ class MainActivity : ComponentActivity() {
             KMBDownloaderTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val showSplash by viewModel.showSplash.collectAsState()
-                    var currentScreen by remember { mutableStateOf("home") }
+                    var currentScreen by remember { mutableStateOf("downloader") }
 
-                    BackHandler(enabled = currentScreen != "home") {
-                        currentScreen = "home"
+                    BackHandler(enabled = currentScreen != "downloader") {
+                        currentScreen = "downloader"
                     }
 
                     AnimatedContent(
@@ -71,31 +76,50 @@ class MainActivity : ComponentActivity() {
                         if (isSplash) {
                             SplashScreen(onFinished = { viewModel.finishSplash() })
                         } else {
-                            AnimatedContent(
-                                targetState = currentScreen,
-                                transitionSpec = {
-                                    fadeIn(tween(300)) togetherWith fadeOut(tween(300))
+                            Scaffold(
+                                bottomBar = {
+                                    KmbBottomNav(
+                                        currentRoute = currentScreen,
+                                        onNavigate = { currentScreen = it }
+                                    )
                                 },
-                                label = "screenTransition"
-                            ) { screen ->
-                                when (screen) {
-                                    "whatsapp" -> {
-                                        WhatsAppStatusScreen(
-                                            viewModel = waViewModel,
-                                            onBack = { currentScreen = "home" }
-                                        )
-                                    }
-                                    "ai_studio" -> {
-                                        AiStudioScreen(
-                                            onNavigateBack = { currentScreen = "home" }
-                                        )
-                                    }
-                                    else -> {
-                                        HomeScreen(
-                                            viewModel = viewModel,
-                                            onNavigateToWhatsAppStatus = { currentScreen = "whatsapp" },
-                                            onNavigateToAiStudio = { currentScreen = "ai_studio" }
-                                        )
+                                modifier = Modifier.fillMaxSize()
+                            ) { innerPadding ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(innerPadding)
+                                ) {
+                                    AnimatedContent(
+                                        targetState = currentScreen,
+                                        transitionSpec = {
+                                            fadeIn(tween(250)) togetherWith fadeOut(tween(200))
+                                        },
+                                        label = "screenTransition"
+                                    ) { screen ->
+                                        when (screen) {
+                                            "whatsapp" -> {
+                                                WhatsAppStatusScreen(
+                                                    viewModel = waViewModel,
+                                                    onBack = { currentScreen = "downloader" }
+                                                )
+                                            }
+                                            "ai_studio" -> {
+                                                AiStudioScreen(
+                                                    onNavigateBack = { currentScreen = "downloader" }
+                                                )
+                                            }
+                                            "vip_pro" -> {
+                                                VipProScreen()
+                                            }
+                                            else -> {
+                                                HomeScreen(
+                                                    viewModel = viewModel,
+                                                    onNavigateToWhatsAppStatus = { currentScreen = "whatsapp" },
+                                                    onNavigateToAiStudio = { currentScreen = "ai_studio" }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
