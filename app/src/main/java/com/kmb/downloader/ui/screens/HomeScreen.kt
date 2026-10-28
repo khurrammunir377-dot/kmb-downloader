@@ -47,6 +47,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Visibility
@@ -79,6 +81,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -96,9 +99,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.kmb.downloader.data.DownloadItem
+import com.kmb.downloader.data.ReferralManager
 import com.kmb.downloader.data.SavedLink
+import com.kmb.downloader.ui.components.AudioStudioDialog
 import com.kmb.downloader.ui.components.GlowCard
+import com.kmb.downloader.ui.components.ReferralDialog
 import com.kmb.downloader.ui.components.RotatingDownloadOrb
+import kotlinx.coroutines.launch
 import com.kmb.downloader.ui.theme.KmbGlow
 import com.kmb.downloader.ui.theme.KmbPrimary
 import com.kmb.downloader.ui.theme.KmbPrimaryLight
@@ -124,12 +131,16 @@ fun HomeScreen(
     val engineInitState by viewModel.engineInitState.collectAsState()
     val isEngineLoading by viewModel.isEngineLoading.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showManualInput by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showReferralDialog by remember { mutableStateOf(false) }
     var itemToTrim by remember { mutableStateOf<DownloadItem?>(null) }
+    var audioStudioItem by remember { mutableStateOf<DownloadItem?>(null) }
+    val proState by ReferralManager.proState.collectAsState()
 
     val trimEnabled by viewModel.trimEnabled.collectAsState()
     val trimStartTime by viewModel.trimStartTime.collectAsState()
@@ -216,8 +227,35 @@ fun HomeScreen(
                         }
                     }
 
-                    // Action Icons: Engine Update + 3 Dots Menu Button
+                    // Action Icons: VIP Badge + Engine Update + 3 Dots Menu Button
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // VIP Crown Pill
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    if (proState.isPro) Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFF9800)))
+                                    else Brush.horizontalGradient(listOf(Color(0xFF2E3440), Color(0xFF1E222B)))
+                                )
+                                .border(
+                                    1.dp,
+                                    if (proState.isPro) Color(0xFFFFD700) else Color(0xFF4B5563),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable { showReferralDialog = true }
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (proState.isPro) "👑 PRO" else "🎁 VIP",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (proState.isPro) Color.Black else Color(0xFFFFD700)
+                            )
+                        }
+
+                        Spacer(Modifier.width(2.dp))
+
                         IconButton(
                             onClick = { viewModel.updateEngine() },
                             enabled = !isUpdatingEngine
@@ -253,6 +291,21 @@ fun HomeScreen(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("👑 Refer & Earn VIP Pro", fontWeight = FontWeight.Bold, color = Color(0xFFFFD700)) },
+                                    onClick = {
+                                        showMenu = false
+                                        showReferralDialog = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.CardGiftcard,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFFD700)
+                                        )
+                                    }
+                                )
+                                HorizontalDivider()
                                 DropdownMenuItem(
                                     text = { Text("WhatsApp Status Saver", fontWeight = FontWeight.Bold) },
                                     onClick = {
@@ -806,6 +859,7 @@ fun HomeScreen(
                         onPlay = { viewModel.openFile(context, item) },
                         onShare = { viewModel.shareFile(context, item) },
                         onTrim = { itemToTrim = item },
+                        onAudioStudio = { audioStudioItem = item },
                         onCancel = { viewModel.cancelDownload(item.id) },
                         onDelete = { viewModel.deleteDownload(item) }
                     )
@@ -896,7 +950,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v3.6.0", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v3.7.0", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -941,6 +995,31 @@ fun HomeScreen(
             confirmButton = {
                 TextButton(onClick = { showAboutDialog = false }) {
                     Text("OK", fontWeight = FontWeight.Bold, color = KmbPrimary)
+                }
+            }
+        )
+    }
+
+    // Referral & VIP Pro Dialog
+    if (showReferralDialog) {
+        ReferralDialog(
+            onDismiss = { showReferralDialog = false },
+            onShowMessage = { msg ->
+                scope.launch {
+                    snackbarHostState.showSnackbar(msg)
+                }
+            }
+        )
+    }
+
+    // Audio Studio & Ringtone Maker Dialog
+    audioStudioItem?.let { item ->
+        AudioStudioDialog(
+            item = item,
+            onDismiss = { audioStudioItem = null },
+            onCompleted = { msg ->
+                scope.launch {
+                    snackbarHostState.showSnackbar(msg)
                 }
             }
         )
@@ -1079,6 +1158,7 @@ fun CompactDownloadHistoryCard(
     onPlay: () -> Unit,
     onShare: () -> Unit,
     onTrim: () -> Unit,
+    onAudioStudio: () -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1211,6 +1291,14 @@ fun CompactDownloadHistoryCard(
                                 Icons.Default.ContentCut,
                                 contentDescription = "Trim Clip",
                                 tint = KmbPrimaryLight,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        IconButton(onClick = onAudioStudio, modifier = Modifier.size(30.dp)) {
+                            Icon(
+                                Icons.Default.MusicNote,
+                                contentDescription = "Audio Studio & Ringtone",
+                                tint = Color(0xFFA78BFA),
                                 modifier = Modifier.size(16.dp)
                             )
                         }

@@ -45,6 +45,9 @@ class KmbApp : Application(), ImageLoaderFactory {
             defaultHandler?.uncaughtException(thread, throwable)
         }
 
+        // Initialize Referral and Pro state
+        com.kmb.downloader.data.ReferralManager.init(this)
+
         // Initialize YoutubeDL and FFmpeg in background
         CoroutineScope(Dispatchers.IO).launch {
             try {

@@ -174,6 +174,11 @@ object DownloadHelper {
         request.addOption("--restrict-filenames")
         request.addOption("--no-mtime")
         request.addOption("--no-check-certificates")
+
+        // VIP Pro Turbo boost: concurrent fragment downloading
+        if (com.kmb.downloader.data.ReferralManager.proState.value.isPro) {
+            request.addOption("--concurrent-fragments", "5")
+        }
         request.addOption("--no-warnings")
         request.addOption("--prefer-free-formats")
         request.addOption("--force-overwrites")

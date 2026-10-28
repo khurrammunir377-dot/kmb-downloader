@@ -17,9 +17,19 @@ import java.io.File
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 
+enum class AudioTarget {
+    RINGTONE,
+    NOTIFICATION,
+    ALARM,
+    MUSIC
+}
+
 object VideoTrimmerHelper {
     private const val TAG = "VideoTrimmerHelper"
 
+    /**
+     * Losslessly trims video or audio using Android native hardware MediaExtractor + MediaMuxer.
+     */
     suspend fun trimMedia(
         context: Context,
         inputFilePath: String,
@@ -34,12 +44,12 @@ object VideoTrimmerHelper {
 
         val startMs = parseTimeToMs(startTime)
         val endMs = parseTimeToMs(endTime)
-        if (endMs <= startMs) {
+        if (endMs <= startMs && endMs > 0) {
             return@withContext Result.failure(Exception("End time must be greater than start time"))
         }
 
         val startUs = startMs * 1000L
-        val endUs = endMs * 1000L
+        val endUs = if (endMs > 0) endMs * 1000L else Long.MAX_VALUE
 
         val ext = if (isAudioOnly) "m4a" else "mp4"
         val tempOutput = File(context.cacheDir, "kmb_trim_${System.currentTimeMillis()}.$ext")
@@ -72,6 +82,10 @@ object VideoTrimmerHelper {
                     val newSize = format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE)
                     bufferSize = maxOf(bufferSize, newSize)
                 }
+            }
+
+            if (indexMap.isEmpty()) {
+                return@withContext Result.failure(Exception("No compatible audio/video stream found to trim."))
             }
 
             if (bufferSize < 0) bufferSize = 1024 * 1024
@@ -125,8 +139,46 @@ object VideoTrimmerHelper {
         }
     }
 
+    /**
+     * Extracts audio track from video/audio and saves to MediaStore under
+     * Ringtones, Notifications, Alarms, or Music.
+     */
+    suspend fun extractAndSaveAudio(
+        context: Context,
+        inputFilePath: String,
+        startTime: String = "",
+        endTime: String = "",
+        customTitle: String? = null,
+        target: AudioTarget = AudioTarget.RINGTONE
+    ): Result<Uri> = withContext(Dispatchers.IO) {
+        val trimResult = trimMedia(
+            context = context,
+            inputFilePath = inputFilePath,
+            startTime = startTime,
+            endTime = endTime,
+            isAudioOnly = true
+        )
+
+        trimResult.fold(
+            onSuccess = { tempAudioFile ->
+                val title = customTitle?.takeIf { it.isNotBlank() }
+                    ?: File(inputFilePath).nameWithoutExtension
+                val savedUri = saveAudioToMediaStore(context, tempAudioFile, title, target)
+                if (savedUri != null) {
+                    Result.success(savedUri)
+                } else {
+                    Result.failure(Exception("Failed to register audio into system sound storage."))
+                }
+            },
+            onFailure = { err ->
+                Result.failure(err)
+            }
+        )
+    }
+
     private fun parseTimeToMs(time: String): Long {
         val clean = time.trim()
+        if (clean.isBlank()) return 0L
         val parts = clean.split(":")
         return when (parts.size) {
             1 -> (parts[0].toLongOrNull() ?: 0L) * 1000L
@@ -190,6 +242,66 @@ object VideoTrimmerHelper {
             MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), arrayOf(mimeType), null)
             itemUri
         } catch (e: Exception) {
+            try { resolver.delete(itemUri, null, null) } catch (_: Exception) {}
+            null
+        }
+    }
+
+    fun saveAudioToMediaStore(
+        context: Context,
+        file: File,
+        title: String,
+        target: AudioTarget
+    ): Uri? {
+        val resolver = context.contentResolver
+        val mimeType = "audio/mp4"
+        val cleanName = title.replace(Regex("[^a-zA-Z0-9._ -]"), "_")
+        val filename = "KMB_${target.name.lowercase()}_${System.currentTimeMillis()}_$cleanName.${file.extension}"
+
+        val relativePath = when (target) {
+            AudioTarget.RINGTONE -> "Ringtones/KMB Downloader"
+            AudioTarget.NOTIFICATION -> "Notifications/KMB Downloader"
+            AudioTarget.ALARM -> "Alarms/KMB Downloader"
+            AudioTarget.MUSIC -> "Music/KMB Downloader"
+        }
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        }
+
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DISPLAY_NAME, filename)
+            put(MediaStore.Audio.Media.TITLE, title)
+            put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
+            put(MediaStore.Audio.Media.IS_RINGTONE, if (target == AudioTarget.RINGTONE) 1 else 0)
+            put(MediaStore.Audio.Media.IS_NOTIFICATION, if (target == AudioTarget.NOTIFICATION) 1 else 0)
+            put(MediaStore.Audio.Media.IS_ALARM, if (target == AudioTarget.ALARM) 1 else 0)
+            put(MediaStore.Audio.Media.IS_MUSIC, if (target == AudioTarget.MUSIC) 1 else 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+
+        val itemUri = resolver.insert(collection, values) ?: return null
+
+        return try {
+            FileInputStream(file).use { input ->
+                resolver.openOutputStream(itemUri)?.use { output ->
+                    input.copyTo(output)
+                }
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(itemUri, values, null, null)
+            }
+            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), arrayOf(mimeType), null)
+            itemUri
+        } catch (e: Exception) {
+            Log.e(TAG, "Save to media store failed: ${e.message}", e)
             try { resolver.delete(itemUri, null, null) } catch (_: Exception) {}
             null
         }
