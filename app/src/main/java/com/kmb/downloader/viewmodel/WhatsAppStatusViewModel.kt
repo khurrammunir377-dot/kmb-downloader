@@ -124,6 +124,12 @@ class WhatsAppStatusViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun resetPermission(context: Context) {
+        WhatsAppStatusHelper.clearSavedFolderUri(context, _isBusiness.value)
+        _hasPermission.value = false
+        _statuses.value = emptyList()
+    }
+
     fun shareStatus(context: Context, item: WhatsAppStatusItem) {
         WhatsAppStatusHelper.shareStatus(context, item)
     }

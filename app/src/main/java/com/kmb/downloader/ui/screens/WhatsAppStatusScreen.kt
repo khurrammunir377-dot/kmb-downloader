@@ -171,6 +171,12 @@ fun WhatsAppStatusScreen(
                     IconButton(onClick = { viewModel.loadStatuses(context) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = KmbSecondary)
                     }
+                    IconButton(onClick = {
+                        val initialUri = WhatsAppStatusHelper.getInitialUri(isBusiness)
+                        openDocumentTreeLauncher.launch(initialUri)
+                    }) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = "Select Folder", tint = WhatsAppGreen)
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -407,16 +413,31 @@ fun WhatsAppStatusScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
-                            Spacer(Modifier.height(16.dp))
+                            Spacer(Modifier.height(18.dp))
 
-                            Button(
-                                onClick = { viewModel.loadStatuses(context) },
-                                colors = ButtonDefaults.buttonColors(containerColor = WhatsAppGreen),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Refresh Statuses", color = Color.White)
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = { viewModel.loadStatuses(context) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = WhatsAppGreen),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Color.White)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Refresh", color = Color.White)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        val initialUri = WhatsAppStatusHelper.getInitialUri(isBusiness)
+                                        openDocumentTreeLauncher.launch(initialUri)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color.White)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Select Folder", color = Color.White)
+                                }
                             }
                         }
                     }

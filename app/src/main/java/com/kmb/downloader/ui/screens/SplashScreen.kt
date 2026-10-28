@@ -186,7 +186,7 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(14.dp))
 
             Text(
-                text = "v3.5.1 • Fast & Secure Engine",
+                text = "v3.5.2 • Fast & Secure Engine",
                 style = MaterialTheme.typography.labelSmall.copy(
                     letterSpacing = 0.8.sp,
                     fontSize = 11.sp

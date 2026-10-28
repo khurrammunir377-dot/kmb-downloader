@@ -56,14 +56,34 @@ object WhatsAppStatusHelper {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val key = if (isBusiness) KEY_WB_URI else KEY_WA_URI
         prefs.edit().putString(key, uri.toString()).apply()
+        Log.i(TAG, "Saved SAF folder URI for business=$isBusiness: $uri")
     }
 
+    fun clearSavedFolderUri(context: Context, isBusiness: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val key = if (isBusiness) KEY_WB_URI else KEY_WA_URI
+        prefs.edit().remove(key).apply()
+        Log.i(TAG, "Cleared saved SAF folder URI for business=$isBusiness")
+    }
+
+    /**
+     * Checks if we have valid permission to read statuses.
+     * Note: We only consider direct file access valid if listFiles() actually returns non-null,
+     * preventing Android 11+ Scoped Storage false positives.
+     */
     fun hasFolderPermission(context: Context, isBusiness: Boolean): Boolean {
-        // First check direct file access (works on Android 10 and below or certain devices)
-        if (getDirectStatusesDir(isBusiness)?.exists() == true && getDirectStatusesDir(isBusiness)?.canRead() == true) {
-            return true
+        // 1. Direct file check: Only true if direct listing actually succeeds
+        val directDir = getDirectStatusesDir(isBusiness)
+        if (directDir != null) {
+            try {
+                val list = directDir.listFiles()
+                if (list != null && list.isNotEmpty()) {
+                    return true
+                }
+            } catch (_: Exception) {}
         }
 
+        // 2. SAF persisted permission check
         val uri = getSavedFolderUri(context, isBusiness) ?: return false
         return try {
             val hasPerm = context.contentResolver.persistedUriPermissions.any {
@@ -85,24 +105,29 @@ object WhatsAppStatusHelper {
         val candidatePaths = if (isBusiness) {
             listOf(
                 File(base, "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses"),
-                File(base, "WhatsApp Business/Media/.Statuses")
+                File(base, "WhatsApp Business/Media/.Statuses"),
+                File(base, "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/Statuses")
             )
         } else {
             listOf(
                 File(base, "Android/media/com.whatsapp/WhatsApp/Media/.Statuses"),
-                File(base, "WhatsApp/Media/.Statuses")
+                File(base, "WhatsApp/Media/.Statuses"),
+                File(base, "Android/media/com.whatsapp/WhatsApp/Media/Statuses")
             )
         }
         return candidatePaths.firstOrNull { it.exists() && it.canRead() }
     }
 
+    /**
+     * Constructs the optimal initial URI to point the Android folder picker directly
+     * into com.whatsapp or com.whatsapp.w4b in Android/media.
+     * The user just has to tap "USE THIS FOLDER" and "ALLOW".
+     */
     fun getInitialUri(isBusiness: Boolean): Uri? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val path = if (isBusiness) {
-                "primary:Android%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia%2F.Statuses"
-            } else {
-                "primary:Android%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses"
-            }
+            val pkg = if (isBusiness) "com.whatsapp.w4b" else "com.whatsapp"
+            // Target the package folder inside Android/media
+            val path = "primary:Android%2Fmedia%2F$pkg"
             return Uri.parse("content://com.android.externalstorage.documents/document/$path")
         }
         return null
@@ -126,67 +151,179 @@ object WhatsAppStatusHelper {
     fun fetchStatuses(context: Context, isBusiness: Boolean): List<WhatsAppStatusItem> {
         val result = mutableListOf<WhatsAppStatusItem>()
 
-        // 1. Try direct file access first
-        val directDir = getDirectStatusesDir(isBusiness)
-        if (directDir != null && directDir.exists() && directDir.canRead()) {
-            val files = directDir.listFiles()
-            if (!files.isNullOrEmpty()) {
-                for (f in files) {
-                    if (isValidStatusFile(f.name)) {
-                        val isVid = f.name.endsWith(".mp4", ignoreCase = true)
-                        result.add(
-                            WhatsAppStatusItem(
-                                uri = f.toUri(),
-                                name = f.name,
-                                isVideo = isVid,
-                                size = f.length(),
-                                lastModified = f.lastModified()
-                            )
-                        )
-                    }
-                }
-                if (result.isNotEmpty()) {
-                    return result.sortedByDescending { it.lastModified }
-                }
-            }
-        }
-
-        // 2. Try SAF DocumentFile access
-        val treeUri = getSavedFolderUri(context, isBusiness) ?: return emptyList()
+        // 1. First, check direct file access (works on Android <= 10 or with all-files access)
         try {
-            val rootDoc = DocumentFile.fromTreeUri(context, treeUri) ?: return emptyList()
-            // If the user selected Media folder, look for .Statuses inside it
-            val targetFolder = if (rootDoc.name.equals(".Statuses", ignoreCase = true)) {
-                rootDoc
+            val directCandidates = if (isBusiness) {
+                listOf(
+                    File(Environment.getExternalStorageDirectory(), "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses"),
+                    File(Environment.getExternalStorageDirectory(), "WhatsApp Business/Media/.Statuses"),
+                    File(Environment.getExternalStorageDirectory(), "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/Statuses")
+                )
             } else {
-                rootDoc.findFile(".Statuses") ?: rootDoc
+                listOf(
+                    File(Environment.getExternalStorageDirectory(), "Android/media/com.whatsapp/WhatsApp/Media/.Statuses"),
+                    File(Environment.getExternalStorageDirectory(), "WhatsApp/Media/.Statuses"),
+                    File(Environment.getExternalStorageDirectory(), "Android/media/com.whatsapp/WhatsApp/Media/Statuses")
+                )
             }
 
-            val docFiles = targetFolder.listFiles()
-            for (doc in docFiles) {
-                val name = doc.name ?: continue
-                if (isValidStatusFile(name)) {
-                    val isVid = name.endsWith(".mp4", ignoreCase = true)
-                    result.add(
-                        WhatsAppStatusItem(
-                            uri = doc.uri,
-                            name = name,
-                            isVideo = isVid,
-                            size = doc.length(),
-                            lastModified = doc.lastModified()
-                        )
-                    )
+            for (dir in directCandidates) {
+                if (dir.exists() && dir.canRead()) {
+                    val files = dir.listFiles()
+                    if (!files.isNullOrEmpty()) {
+                        Log.d(TAG, "Found ${files.size} raw files via direct access in: ${dir.path}")
+                        for (f in files) {
+                            if (isValidStatusFile(f.name)) {
+                                result.add(
+                                    WhatsAppStatusItem(
+                                        uri = f.toUri(),
+                                        name = f.name,
+                                        isVideo = f.name.endsWith(".mp4", ignoreCase = true),
+                                        size = f.length(),
+                                        lastModified = f.lastModified()
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error listing SAF statuses: ${e.message}", e)
+            Log.w(TAG, "Direct file scan failed: ${e.message}")
         }
 
-        return result.sortedByDescending { it.lastModified }
+        // 2. Next, scan via SAF Tree URI
+        val treeUri = getSavedFolderUri(context, isBusiness)
+        if (treeUri != null) {
+            try {
+                val treeDocId = DocumentsContract.getTreeDocumentId(treeUri)
+                Log.d(TAG, "Scanning via SAF treeUri: $treeUri, docId: $treeDocId")
+
+                // Generate candidate document IDs for .Statuses based on what folder user picked
+                val candidateDocIds = mutableListOf<String>()
+
+                if (treeDocId.endsWith("/.Statuses") || treeDocId.endsWith("/Statuses")) {
+                    candidateDocIds.add(treeDocId)
+                } else if (treeDocId.endsWith("/Media")) {
+                    candidateDocIds.add("$treeDocId/.Statuses")
+                    candidateDocIds.add("$treeDocId/Statuses")
+                } else if (treeDocId.endsWith("/WhatsApp") || treeDocId.endsWith("/WhatsApp Business")) {
+                    candidateDocIds.add("$treeDocId/Media/.Statuses")
+                    candidateDocIds.add("$treeDocId/Media/Statuses")
+                } else {
+                    // Usually com.whatsapp or com.whatsapp.w4b
+                    candidateDocIds.add("$treeDocId/WhatsApp/Media/.Statuses")
+                    candidateDocIds.add("$treeDocId/WhatsApp Business/Media/.Statuses")
+                    candidateDocIds.add("$treeDocId/WhatsApp/Media/Statuses")
+                    candidateDocIds.add("$treeDocId/Media/.Statuses")
+                    candidateDocIds.add("$treeDocId/.Statuses")
+                    candidateDocIds.add(treeDocId)
+                }
+
+                var safFound = false
+
+                // Method 2A: Direct ContentResolver Query on childrenUri (super fast & accurate)
+                for (docId in candidateDocIds) {
+                    try {
+                        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, docId)
+                        val cursor = context.contentResolver.query(
+                            childrenUri,
+                            arrayOf(
+                                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                                DocumentsContract.Document.COLUMN_SIZE,
+                                DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                            ),
+                            null,
+                            null,
+                            null
+                        )
+
+                        cursor?.use { c ->
+                            val idCol = c.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                            val nameCol = c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                            val sizeCol = c.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+                            val modCol = c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+
+                            var count = 0
+                            while (c.moveToNext()) {
+                                val childId = c.getString(idCol)
+                                val name = c.getString(nameCol) ?: continue
+                                if (isValidStatusFile(name)) {
+                                    val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, childId)
+                                    val isVid = name.endsWith(".mp4", ignoreCase = true)
+                                    val size = if (sizeCol >= 0) c.getLong(sizeCol) else 0L
+                                    val mod = if (modCol >= 0) c.getLong(modCol) else 0L
+
+                                    result.add(
+                                        WhatsAppStatusItem(
+                                            uri = childUri,
+                                            name = name,
+                                            isVideo = isVid,
+                                            size = size,
+                                            lastModified = mod
+                                        )
+                                    )
+                                    count++
+                                }
+                            }
+                            if (count > 0) {
+                                Log.i(TAG, "Successfully loaded $count statuses from docId: $docId")
+                                safFound = true
+                            }
+                        }
+                        if (safFound) break
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Candidate docId query skipped for $docId: ${e.message}")
+                    }
+                }
+
+                // Method 2B: DocumentFile tree navigation fallback
+                if (!safFound) {
+                    val rootDoc = DocumentFile.fromTreeUri(context, treeUri)
+                    if (rootDoc != null) {
+                        var target = rootDoc
+                        if (!target.name.equals(".Statuses", ignoreCase = true) && !target.name.equals("Statuses", ignoreCase = true)) {
+                            val wa = target.findFile("WhatsApp") ?: target.findFile("WhatsApp Business") ?: target
+                            val media = wa.findFile("Media") ?: wa
+                            target = media.findFile(".Statuses") ?: media.findFile("Statuses") ?: media
+                        }
+
+                        val files = target.listFiles()
+                        for (doc in files) {
+                            val name = doc.name ?: continue
+                            if (isValidStatusFile(name)) {
+                                result.add(
+                                    WhatsAppStatusItem(
+                                        uri = doc.uri,
+                                        name = name,
+                                        isVideo = name.endsWith(".mp4", ignoreCase = true),
+                                        size = doc.length(),
+                                        lastModified = doc.lastModified()
+                                    )
+                                )
+                            }
+                        }
+                        Log.d(TAG, "DocumentFile traversal found ${result.size} files in ${target.name}")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error listing SAF statuses: ${e.message}", e)
+            }
+        }
+
+        // De-duplicate by filename and sort newest first
+        val finalStatuses = result
+            .distinctBy { it.name }
+            .sortedByDescending { it.lastModified }
+
+        Log.i(TAG, "Total WhatsApp statuses loaded for business=$isBusiness: ${finalStatuses.size}")
+        return finalStatuses
     }
 
     private fun isValidStatusFile(name: String): Boolean {
-        if (name.equals(".nomedia", ignoreCase = true)) return false
+        if (name.startsWith(".nomedia", ignoreCase = true)) return false
         val lower = name.lowercase()
         return lower.endsWith(".jpg") || lower.endsWith(".jpeg") ||
                lower.endsWith(".png") || lower.endsWith(".mp4")
