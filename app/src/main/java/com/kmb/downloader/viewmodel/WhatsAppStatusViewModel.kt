@@ -65,17 +65,19 @@ class WhatsAppStatusViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun checkAndLoad(context: Context) {
-        val biz = _isBusiness.value
-        val installed = WhatsAppStatusHelper.isAppInstalled(context, biz)
-        _isAppInstalled.value = installed
+        viewModelScope.launch(Dispatchers.IO) {
+            val biz = _isBusiness.value
+            val installed = WhatsAppStatusHelper.isAppInstalled(context, biz)
+            _isAppInstalled.value = installed
 
-        val perm = WhatsAppStatusHelper.hasFolderPermission(context, biz)
-        _hasPermission.value = perm
+            val perm = WhatsAppStatusHelper.hasFolderPermission(context, biz)
+            _hasPermission.value = perm
 
-        if (perm) {
-            loadStatuses(context)
-        } else {
-            _statuses.value = emptyList()
+            if (perm) {
+                loadStatuses(context)
+            } else {
+                _statuses.value = emptyList()
+            }
         }
     }
 
@@ -97,7 +99,10 @@ class WhatsAppStatusViewModel(application: Application) : AndroidViewModel(appli
 
     fun loadStatuses(context: Context) {
         viewModelScope.launch {
-            _isLoading.value = true
+            // Only show full loader if there are no items cached yet
+            if (_statuses.value.isEmpty()) {
+                _isLoading.value = true
+            }
             val biz = _isBusiness.value
             val list = withContext(Dispatchers.IO) {
                 WhatsAppStatusHelper.fetchStatuses(context, biz)

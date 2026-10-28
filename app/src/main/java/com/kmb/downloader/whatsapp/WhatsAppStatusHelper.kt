@@ -62,7 +62,8 @@ object WhatsAppStatusHelper {
     fun clearSavedFolderUri(context: Context, isBusiness: Boolean) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val key = if (isBusiness) KEY_WB_URI else KEY_WA_URI
-        prefs.edit().remove(key).apply()
+        val cacheKey = if (isBusiness) "cached_wb_doc_id" else "cached_wa_doc_id"
+        prefs.edit().remove(key).remove(cacheKey).apply()
         Log.i(TAG, "Cleared saved SAF folder URI for business=$isBusiness")
     }
 
@@ -202,8 +203,15 @@ object WhatsAppStatusHelper {
                 // Generate candidate document IDs for .Statuses based on what folder user picked
                 val candidateDocIds = mutableListOf<String>()
 
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val cacheKey = if (isBusiness) "cached_wb_doc_id" else "cached_wa_doc_id"
+                val cachedDocId = prefs.getString(cacheKey, null)
+                if (!cachedDocId.isNullOrBlank()) {
+                    candidateDocIds.add(cachedDocId)
+                }
+
                 if (treeDocId.endsWith("/.Statuses") || treeDocId.endsWith("/Statuses")) {
-                    candidateDocIds.add(treeDocId)
+                    if (!candidateDocIds.contains(treeDocId)) candidateDocIds.add(treeDocId)
                 } else if (treeDocId.endsWith("/Media")) {
                     candidateDocIds.add("$treeDocId/.Statuses")
                     candidateDocIds.add("$treeDocId/Statuses")
@@ -270,6 +278,7 @@ object WhatsAppStatusHelper {
                             }
                             if (count > 0) {
                                 Log.i(TAG, "Successfully loaded $count statuses from docId: $docId")
+                                prefs.edit().putString(cacheKey, docId).apply()
                                 safFound = true
                             }
                         }

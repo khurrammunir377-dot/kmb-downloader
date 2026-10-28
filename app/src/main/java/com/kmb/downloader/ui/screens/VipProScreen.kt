@@ -139,27 +139,59 @@ fun VipProScreen() {
     )
 
     Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "👑",
-                            fontSize = 22.sp
-                        )
-                        Text(
-                            text = "KMB VIP Pro & Rewards",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = Color.White
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(goldGradient),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.WorkspacePremium,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "VIP Pro & Rewards",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = "Turbo Engine & Secret Vault",
+                                fontSize = 11.sp,
+                                color = Color(0xFFFFD700)
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            isCreatingNewPin = !VaultManager.isPinSet(context)
+                            vaultPinInput = ""
+                            vaultPinError = null
+                            showVaultPinDialog = true
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Security,
+                            contentDescription = "Secret Vault",
+                            tint = Color(0xFF818CF8)
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

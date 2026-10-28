@@ -184,22 +184,45 @@ fun AiStudioScreen(
     )
 
     Scaffold(
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
+            val activeItem = studioItems.firstOrNull { it.tool == activeTool }
             TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = if (activeTool != null) {
-                                studioItems.firstOrNull { it.tool == activeTool }?.title ?: "AI Studio"
-                            } else "🎨 KMB AI Media Studio",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = Color.White
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        activeItem?.gradient ?: listOf(Color(0xFF8B5CF6), Color(0xFF6366F1))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                activeItem?.icon ?: Icons.Default.AutoFixHigh,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(19.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = activeItem?.title ?: "AI Media Studio",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 16.sp,
+                                color = Color.White
+                            )
+                            Text(
+                                text = activeItem?.tag ?: "On-Device AI Photo & Video Tools",
+                                fontSize = 11.sp,
+                                color = Color(0xFFA78BFA)
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
@@ -213,7 +236,7 @@ fun AiStudioScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

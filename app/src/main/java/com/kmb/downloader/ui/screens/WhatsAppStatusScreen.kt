@@ -133,7 +133,6 @@ fun WhatsAppStatusScreen(
     }
 
     Scaffold(
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -177,9 +176,6 @@ fun WhatsAppStatusScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showDirectChatDialog = true }) {
-                        Icon(Icons.Default.Chat, contentDescription = "Direct Chat", tint = WhatsAppGreen)
-                    }
                     IconButton(onClick = { viewModel.loadStatuses(context) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = KmbSecondary)
                     }
@@ -191,7 +187,7 @@ fun WhatsAppStatusScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color(0xFF0F172A)
                 )
             )
         }
@@ -636,6 +632,7 @@ fun StatusCard(
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(item.uri)
+                    .size(300, 300)
                     .crossfade(true)
                     .build(),
                 contentDescription = item.name,

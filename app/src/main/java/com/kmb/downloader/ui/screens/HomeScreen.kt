@@ -76,6 +76,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -115,7 +118,7 @@ import com.kmb.downloader.viewmodel.MainViewModel
 
 const val KMB_SUPPORT_EMAIL = "mkmbapps@gmail.com"
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
@@ -174,30 +177,13 @@ fun HomeScreen(
     }
 
     Scaffold(
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Header with 3-Dots Menu
-            item {
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+        topBar = {
+            TopAppBar(
+                title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(width = 54.dp, height = 32.dp)
+                                .size(width = 46.dp, height = 30.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color.White)
                                 .border(1.dp, KmbSecondary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
@@ -218,176 +204,190 @@ fun HomeScreen(
                                 text = "KMB DOWNLOADER",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.1.sp
+                                    letterSpacing = 1.1.sp,
+                                    fontSize = 16.sp
                                 ),
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
                                 text = "Instant Media Grabber",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                 color = KmbSecondary
                             )
                         }
                     }
+                },
+                actions = {
+                    // VIP Crown Pill
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                if (proState.isPro) Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFF9800)))
+                                else Brush.horizontalGradient(listOf(Color(0xFF2E3440), Color(0xFF1E222B)))
+                            )
+                            .border(
+                                1.dp,
+                                if (proState.isPro) Color(0xFFFFD700) else Color(0xFF4B5563),
+                                RoundedCornerShape(16.dp)
+                            )
+                            .clickable { showReferralDialog = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (proState.isPro) "👑 PRO" else "🎁 VIP",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (proState.isPro) Color.Black else Color(0xFFFFD700)
+                        )
+                    }
 
-                    // Action Icons: VIP Badge + Engine Update + 3 Dots Menu Button
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // VIP Crown Pill
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(
-                                    if (proState.isPro) Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFF9800)))
-                                    else Brush.horizontalGradient(listOf(Color(0xFF2E3440), Color(0xFF1E222B)))
-                                )
-                                .border(
-                                    1.dp,
-                                    if (proState.isPro) Color(0xFFFFD700) else Color(0xFF4B5563),
-                                    RoundedCornerShape(16.dp)
-                                )
-                                .clickable { showReferralDialog = true }
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (proState.isPro) "👑 PRO" else "🎁 VIP",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = if (proState.isPro) Color.Black else Color(0xFFFFD700)
+                    Spacer(Modifier.width(4.dp))
+
+                    // 3 DOTS MENU BUTTON
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = "Menu",
+                                tint = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
-                        Spacer(Modifier.width(6.dp))
-
-                        // 3 DOTS MENU BUTTON
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(
-                                    Icons.Default.MoreVert,
-                                    contentDescription = "Menu",
-                                    tint = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("👑 Refer & Earn VIP Pro", fontWeight = FontWeight.Bold, color = Color(0xFFFFD700)) },
-                                    onClick = {
-                                        showMenu = false
-                                        showReferralDialog = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.CardGiftcard,
-                                            contentDescription = null,
-                                            tint = Color(0xFFFFD700)
-                                        )
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("👑 Refer & Earn VIP Pro", fontWeight = FontWeight.Bold, color = Color(0xFFFFD700)) },
+                                onClick = {
+                                    showMenu = false
+                                    showReferralDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.CardGiftcard,
+                                        contentDescription = null,
+                                        tint = Color(0xFFFFD700)
+                                    )
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("WhatsApp Status Saver", fontWeight = FontWeight.Bold) },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToWhatsAppStatus()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Visibility,
+                                        contentDescription = null,
+                                        tint = Color(0xFF25D366)
+                                    )
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("AI Media Studio", fontWeight = FontWeight.Bold, color = Color(0xFFA78BFA)) },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToAiStudio()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.AutoFixHigh,
+                                        contentDescription = null,
+                                        tint = Color(0xFFA78BFA)
+                                    )
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Update Download Engine") },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.updateEngine()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = KmbSecondary)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Scan Clipboard for Links") },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.checkClipboardAndSave()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.ContentPaste, contentDescription = null, tint = KmbPrimaryLight)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Clear Saved Links") },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.clearSavedLinks()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Clear, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Clear Download History") },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.clearHistory()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Send Feedback") },
+                                onClick = {
+                                    showMenu = false
+                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                        data = Uri.parse("mailto:$KMB_SUPPORT_EMAIL")
+                                        putExtra(Intent.EXTRA_SUBJECT, "KMB Downloader Feedback")
                                     }
-                                )
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("WhatsApp Status Saver", fontWeight = FontWeight.Bold) },
-                                    onClick = {
-                                        showMenu = false
-                                        onNavigateToWhatsAppStatus()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.Visibility,
-                                            contentDescription = null,
-                                            tint = Color(0xFF25D366)
-                                        )
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("AI Media Studio", fontWeight = FontWeight.Bold, color = Color(0xFFA78BFA)) },
-                                    onClick = {
-                                        showMenu = false
-                                        onNavigateToAiStudio()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.AutoFixHigh,
-                                            contentDescription = null,
-                                            tint = Color(0xFFA78BFA)
-                                        )
-                                    }
-                                )
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("Update Download Engine") },
-                                    onClick = {
-                                        showMenu = false
-                                        viewModel.updateEngine()
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = KmbSecondary)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Scan Clipboard for Links") },
-                                    onClick = {
-                                        showMenu = false
-                                        viewModel.checkClipboardAndSave()
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.ContentPaste, contentDescription = null, tint = KmbPrimaryLight)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Clear Saved Links") },
-                                    onClick = {
-                                        showMenu = false
-                                        viewModel.clearSavedLinks()
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Clear, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Clear Download History") },
-                                    onClick = {
-                                        showMenu = false
-                                        viewModel.clearHistory()
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                                    }
-                                )
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("Send Feedback") },
-                                    onClick = {
-                                        showMenu = false
-                                        val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                            data = Uri.parse("mailto:$KMB_SUPPORT_EMAIL")
-                                            putExtra(Intent.EXTRA_SUBJECT, "KMB Downloader Feedback")
-                                        }
-                                        try { context.startActivity(intent) } catch (_: Exception) {}
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Email, contentDescription = null, tint = KmbSecondary)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("About & Info") },
-                                    onClick = {
-                                        showMenu = false
-                                        showAboutDialog = true
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
-                                    }
-                                )
-                            }
+                                    try { context.startActivity(intent) } catch (_: Exception) {}
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Email, contentDescription = null, tint = KmbSecondary)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("About & Info") },
+                                onClick = {
+                                    showMenu = false
+                                    showAboutDialog = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
+                                }
+                            )
                         }
                     }
-                }
-            }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF0F172A)
+                )
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
             // Engine status banner
             item {
