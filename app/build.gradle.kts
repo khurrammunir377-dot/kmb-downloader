@@ -13,8 +13,8 @@ android {
         applicationId = "com.kmb.downloader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "3.7.0"
+        versionCode = 18
+        versionName = "3.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -87,6 +87,10 @@ dependencies {
 
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("com.google.accompanist:accompanist-permissions:0.36.0")
+
+    // Google ML Kit on-device AI (Background Removal & Text Recognition)
+    implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta4")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

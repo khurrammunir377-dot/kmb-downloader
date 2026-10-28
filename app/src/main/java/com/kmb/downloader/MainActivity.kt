@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.kmb.downloader.ui.screens.AiStudioScreen
 import com.kmb.downloader.ui.screens.HomeScreen
 import com.kmb.downloader.ui.screens.SplashScreen
 import com.kmb.downloader.ui.screens.WhatsAppStatusScreen
@@ -84,10 +85,16 @@ class MainActivity : ComponentActivity() {
                                             onBack = { currentScreen = "home" }
                                         )
                                     }
+                                    "ai_studio" -> {
+                                        AiStudioScreen(
+                                            onNavigateBack = { currentScreen = "home" }
+                                        )
+                                    }
                                     else -> {
                                         HomeScreen(
                                             viewModel = viewModel,
-                                            onNavigateToWhatsAppStatus = { currentScreen = "whatsapp" }
+                                            onNavigateToWhatsAppStatus = { currentScreen = "whatsapp" },
+                                            onNavigateToAiStudio = { currentScreen = "ai_studio" }
                                         )
                                     }
                                 }

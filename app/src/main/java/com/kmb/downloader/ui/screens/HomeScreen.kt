@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Share
@@ -118,7 +119,8 @@ const val KMB_SUPPORT_EMAIL = "mkmbapps@gmail.com"
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
-    onNavigateToWhatsAppStatus: () -> Unit = {}
+    onNavigateToWhatsAppStatus: () -> Unit = {},
+    onNavigateToAiStudio: () -> Unit = {}
 ) {
     val url by viewModel.url.collectAsState()
     val quality by viewModel.selectedQuality.collectAsState()
@@ -320,6 +322,20 @@ fun HomeScreen(
                                         )
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("AI Media Studio", fontWeight = FontWeight.Bold, color = Color(0xFFA78BFA)) },
+                                    onClick = {
+                                        showMenu = false
+                                        onNavigateToAiStudio()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Default.AutoFixHigh,
+                                            contentDescription = null,
+                                            tint = Color(0xFFA78BFA)
+                                        )
+                                    }
+                                )
                                 HorizontalDivider()
                                 DropdownMenuItem(
                                     text = { Text("Update Download Engine") },
@@ -453,6 +469,73 @@ fun HomeScreen(
                             Icons.AutoMirrored.Filled.ArrowForwardIos,
                             contentDescription = "Open",
                             tint = Color(0xFF25D366),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+
+            // AI Media Studio Quick Banner
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onNavigateToAiStudio() }
+                        .border(
+                            1.dp,
+                            Brush.horizontalGradient(
+                                listOf(Color(0xFF8B5CF6).copy(alpha = 0.7f), Color(0xFFEC4899).copy(alpha = 0.45f))
+                            ),
+                            RoundedCornerShape(14.dp)
+                        ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF1E162B).copy(alpha = 0.9f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFFEC4899)))),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.AutoFixHigh,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "AI Media Studio",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    ),
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Photo BG remover • Text eraser • Video delogo",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    color = Color(0xFFA78BFA)
+                                )
+                            }
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForwardIos,
+                            contentDescription = "Open",
+                            tint = Color(0xFFA78BFA),
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -950,7 +1033,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v3.7.0", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v3.8.0", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
