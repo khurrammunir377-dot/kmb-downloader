@@ -176,21 +176,21 @@ object VideoTrimmerHelper {
         )
     }
 
-    private fun parseTimeToMs(time: String): Long {
-        val clean = time.trim()
+    fun parseTimeToMs(time: String): Long {
+        val clean = time.trim().trimEnd('.').replace(";", ":")
         if (clean.isBlank()) return 0L
-        val parts = clean.split(":")
+        val parts = if (clean.contains(":")) clean.split(":") else clean.split(".")
         return when (parts.size) {
-            1 -> (parts[0].toLongOrNull() ?: 0L) * 1000L
+            1 -> (parts[0].trim().toLongOrNull() ?: 0L) * 1000L
             2 -> {
-                val m = parts[0].toLongOrNull() ?: 0L
-                val s = parts[1].toLongOrNull() ?: 0L
+                val m = parts[0].trim().toLongOrNull() ?: 0L
+                val s = parts[1].trim().toLongOrNull() ?: 0L
                 (m * 60L + s) * 1000L
             }
             3 -> {
-                val h = parts[0].toLongOrNull() ?: 0L
-                val m = parts[1].toLongOrNull() ?: 0L
-                val s = parts[2].toLongOrNull() ?: 0L
+                val h = parts[0].trim().toLongOrNull() ?: 0L
+                val m = parts[1].trim().toLongOrNull() ?: 0L
+                val s = parts[2].trim().toLongOrNull() ?: 0L
                 (h * 3600L + m * 60L + s) * 1000L
             }
             else -> 0L

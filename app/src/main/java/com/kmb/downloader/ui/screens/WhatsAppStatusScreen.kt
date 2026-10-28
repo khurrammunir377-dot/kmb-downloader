@@ -133,6 +133,7 @@ fun WhatsAppStatusScreen(
     }
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -251,6 +252,52 @@ fun WhatsAppStatusScreen(
                             fontWeight = if (isBusiness) FontWeight.Bold else FontWeight.Medium
                         ),
                         color = if (isBusiness) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Prominent Direct Chat Hero Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clickable { showDirectChatDialog = true },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = WhatsAppGreen.copy(alpha = 0.12f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, WhatsAppGreen.copy(alpha = 0.45f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(WhatsAppGreen),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Chat, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Direct Chat (No Contact Save)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = WhatsAppGreen
+                        )
+                        Text(
+                            text = "Message any WhatsApp number directly without saving to contacts",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = "START 💬",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = WhatsAppGreen
                     )
                 }
             }
@@ -459,7 +506,7 @@ fun WhatsAppStatusScreen(
                             columns = GridCells.Fixed(3),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(bottom = 24.dp)
+                            contentPadding = PaddingValues(bottom = 6.dp)
                         ) {
                             items(filteredStatuses, key = { it.uri.toString() }) { item ->
                                 StatusCard(

@@ -174,6 +174,7 @@ fun HomeScreen(
     }
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
@@ -256,27 +257,7 @@ fun HomeScreen(
                             )
                         }
 
-                        Spacer(Modifier.width(2.dp))
-
-                        IconButton(
-                            onClick = { viewModel.updateEngine() },
-                            enabled = !isUpdatingEngine
-                        ) {
-                            if (isUpdatingEngine) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = KmbSecondary
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.SystemUpdate,
-                                    contentDescription = "Update yt-dlp engine",
-                                    tint = KmbSecondary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
+                        Spacer(Modifier.width(6.dp))
 
                         // 3 DOTS MENU BUTTON
                         Box {
@@ -815,7 +796,7 @@ fun HomeScreen(
                 }
             }
 
-            item { Spacer(Modifier.height(30.dp)) }
+            item { Spacer(Modifier.height(6.dp)) }
         }
     }
 

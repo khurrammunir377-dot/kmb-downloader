@@ -276,9 +276,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     it != "Loading preview…" && it != "Copied link" && it.isNotBlank()
                 } ?: "Downloading…"
 
-                val timeRange = timeRangeOverride ?: if (_trimEnabled.value && _trimStartTime.value.isNotBlank() && _trimEndTime.value.isNotBlank()) {
+                val rawRange = timeRangeOverride ?: if (_trimEnabled.value && _trimStartTime.value.isNotBlank() && _trimEndTime.value.isNotBlank()) {
                     "${_trimStartTime.value.trim()}-${_trimEndTime.value.trim()}"
                 } else null
+                val timeRange = rawRange?.let { DownloadHelper.normalizeDownloadSections(it) } ?: rawRange
 
                 val item = DownloadItem(
                     url = clean,

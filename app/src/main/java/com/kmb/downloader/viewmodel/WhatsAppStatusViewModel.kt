@@ -114,12 +114,26 @@ class WhatsAppStatusViewModel(application: Application) : AndroidViewModel(appli
             }
             if (success) {
                 _message.value = "Saved to Gallery! 📁"
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "✓ Saved to Gallery (Downloads/KMB Statuses)!",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
                 // Mark as saved in local list
                 _statuses.value = _statuses.value.map {
                     if (it.uri == item.uri) it.copy(isSaved = true) else it
                 }
             } else {
                 _message.value = "Failed to save status"
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Failed to save status",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }

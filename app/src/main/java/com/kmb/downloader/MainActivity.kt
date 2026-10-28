@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .padding(innerPadding)
+                                        .padding(bottom = innerPadding.calculateBottomPadding())
                                 ) {
                                     AnimatedContent(
                                         targetState = currentScreen,

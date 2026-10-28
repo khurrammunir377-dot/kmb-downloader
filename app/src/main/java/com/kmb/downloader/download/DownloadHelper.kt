@@ -14,6 +14,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.util.regex.Pattern
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object DownloadHelper {
 
@@ -146,9 +148,11 @@ object DownloadHelper {
 
         // Download specific time range if specified (e.g. 01:50-02:55)
         if (!timeRange.isNullOrBlank()) {
-            val cleanRange = timeRange.trim().removePrefix("*")
-            request.addOption("--download-sections", "*$cleanRange")
-            request.addOption("--force-keyframes-at-cuts")
+            val normalizedRange = normalizeDownloadSections(timeRange)
+            if (normalizedRange != null) {
+                request.addOption("--download-sections", "*$normalizedRange")
+                request.addOption("--force-keyframes-at-cuts")
+            }
         }
 
         // Select optimal format based on user choice
@@ -176,19 +180,115 @@ object DownloadHelper {
         request.addOption("--no-check-certificates")
 
         // VIP Pro Turbo boost: concurrent fragment downloading
-        if (com.kmb.downloader.data.ReferralManager.proState.value.isPro) {
-            request.addOption("--concurrent-fragments", "5")
-        }
+        val fragments = if (com.kmb.downloader.data.ReferralManager.proState.value.isPro) "5" else "3"
+        request.addOption("--concurrent-fragments", fragments)
         request.addOption("--no-warnings")
         request.addOption("--prefer-free-formats")
         request.addOption("--force-overwrites")
         request.addOption("--socket-timeout", "30")
         request.addOption("--retries", "10")
         request.addOption("--fragment-retries", "10")
-        request.addOption("--concurrent-fragments", "4")
 
         Log.d(TAG, "Request: url=$url, quality=$quality, format=$formatSelector, dir=${outputDir.absolutePath}")
         return request
+    }
+
+    /**
+     * Bulletproof parsing and normalization of time ranges.
+     * Handles "2.0.-4.00", "01:50-02:55", "1.50-2.55", "120-240", etc.
+     */
+    fun normalizeDownloadSections(rawRange: String): String? {
+        val clean = rawRange.trim().removePrefix("*")
+        val parts = clean.split("-")
+        if (parts.size != 2) return null
+        val startSec = parseTimeToSeconds(parts[0]) ?: 0
+        val endSec = parseTimeToSeconds(parts[1]) ?: return null
+        if (endSec <= startSec) return null
+        return "${formatSeconds(startSec)}-${formatSeconds(endSec)}"
+    }
+
+    fun parseTimeToSeconds(raw: String): Int? {
+        val s = raw.trim().trimEnd('.').replace(";", ":")
+        val tokens = if (s.contains(":")) s.split(":") else s.split(".")
+        return when (tokens.size) {
+            1 -> tokens[0].trim().toIntOrNull()
+            2 -> {
+                val m = tokens[0].trim().toIntOrNull() ?: return null
+                val sec = tokens[1].trim().toIntOrNull() ?: return null
+                m * 60 + sec
+            }
+            3 -> {
+                val h = tokens[0].trim().toIntOrNull() ?: return null
+                val m = tokens[1].trim().toIntOrNull() ?: return null
+                val sec = tokens[2].trim().toIntOrNull() ?: return null
+                h * 3600 + m * 60 + sec
+            }
+            else -> null
+        }
+    }
+
+    private fun formatSeconds(totalSec: Int): String {
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = totalSec % 60
+        return if (h > 0) {
+            String.format(java.util.Locale.US, "%02d:%02d:%02d", h, m, s)
+        } else {
+            String.format(java.util.Locale.US, "%02d:%02d", m, s)
+        }
+    }
+
+    /**
+     * Resolves direct master stream URLs for special article pages (like BBC News articles)
+     * where yt-dlp's default extractor cannot locate Next.js embedded clips.
+     */
+    suspend fun resolveDirectStreamIfSpecial(url: String): String = withContext(Dispatchers.IO) {
+        val clean = url.trim()
+        if (clean.contains("bbc.com/") && clean.contains("/articles/")) {
+            try {
+                val resolved = resolveBbcArticleStream(clean)
+                if (!resolved.isNullOrBlank()) {
+                    Log.i(TAG, "Resolved BBC article video stream: $resolved")
+                    return@withContext resolved
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "BBC resolver fallback to original url: ${e.message}")
+            }
+        }
+        return@withContext clean
+    }
+
+    private fun resolveBbcArticleStream(articleUrl: String): String? {
+        val conn = java.net.URL(articleUrl).openConnection() as java.net.HttpURLConnection
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        conn.connectTimeout = 10000
+        conn.readTimeout = 10000
+        val html = conn.inputStream.bufferedReader().use { it.readText() }
+
+        val versionRegex = Regex("[\"']versionId[\"']\\s*:\\s*[\"']([a-zA-Z0-9]+)[\"']")
+        val vpidMatch = versionRegex.find(html) ?: Regex("[\"']vpid[\"']\\s*:\\s*[\"']([a-zA-Z0-9]+)[\"']").find(html)
+        val vpid = vpidMatch?.groupValues?.get(1) ?: return null
+
+        val mediaSelectorUrl = "https://open.live.bbc.co.uk/mediaselector/6/select/version/2.0/mediaset/pc/vpid/$vpid/format/json"
+        val mConn = java.net.URL(mediaSelectorUrl).openConnection() as java.net.HttpURLConnection
+        mConn.setRequestProperty("User-Agent", "Mozilla/5.0")
+        mConn.connectTimeout = 10000
+        mConn.readTimeout = 10000
+        val jsonStr = mConn.inputStream.bufferedReader().use { it.readText() }
+        val root = org.json.JSONObject(jsonStr)
+        val mediaArr = root.optJSONArray("media") ?: return null
+        for (i in 0 until mediaArr.length()) {
+            val m = mediaArr.getJSONObject(i)
+            val connArr = m.optJSONArray("connection") ?: continue
+            for (j in 0 until connArr.length()) {
+                val c = connArr.getJSONObject(j)
+                val href = c.optString("href")
+                if (href.contains(".m3u8")) {
+                    return href
+                }
+            }
+        }
+        return null
     }
 
     /** Internal app storage: 100% writable by Linux subprocess on all Android versions */

@@ -128,7 +128,8 @@ class DownloadService : Service() {
 
                 // Safe output directory in app internal storage (100% writable Linux subprocess)
                 val internalOutputDir = DownloadHelper.getDownloadDir(this@DownloadService)
-                val request = DownloadHelper.buildRequest(url, quality, internalOutputDir, timeRange)
+                val targetUrl = DownloadHelper.resolveDirectStreamIfSpecial(url)
+                val request = DownloadHelper.buildRequest(targetUrl, quality, internalOutputDir, timeRange)
 
                 val existingFiles = internalOutputDir.listFiles()?.map { it.absolutePath }?.toSet() ?: emptySet()
 
