@@ -711,7 +711,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v3.5.0", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v3.5.1", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -939,7 +939,7 @@ fun CompactDownloadHistoryCard(
 
                 Spacer(Modifier.width(10.dp))
 
-                // Middle Info: Title (1 line) & Subtitle (Platform • Quality • Size • Status)
+                // Middle Info: Title (1 line) & Subtitle (Platform • Quality • Size)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.title.ifBlank { item.url },
@@ -948,53 +948,40 @@ fun CompactDownloadHistoryCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(2.dp))
+
+                    val subtitleText = buildString {
+                        append(item.platform)
+                        append(" • ")
+                        append(item.quality)
+                        if (!item.fileSize.isNullOrBlank() && item.status != "Failed") {
+                            append(" • ")
+                            append(item.fileSize)
+                        }
+                        if (item.status != "Completed") {
+                            append(" • ")
+                            append(item.status)
+                        }
+                    }
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text(
-                            text = item.platform,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = KmbPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "•",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = item.quality,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (!item.fileSize.isNullOrBlank() && item.status != "Failed") {
-                            Text(
-                                text = "•",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                            Text(
-                                text = item.fileSize,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        if (item.status == "Completed") {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = "Completed",
+                                tint = KmbSecondary,
+                                modifier = Modifier.size(13.dp)
                             )
                         }
                         Text(
-                            text = "•",
+                            text = subtitleText,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                        Text(
-                            text = item.status,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = when (item.status) {
-                                "Completed" -> KmbSecondary
-                                "Failed" -> MaterialTheme.colorScheme.error
-                                "Cancelled" -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                                else -> KmbPrimaryLight
-                            }
+                            color = if (item.status == "Failed") MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
