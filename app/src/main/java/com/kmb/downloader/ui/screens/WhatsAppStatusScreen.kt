@@ -1,5 +1,6 @@
 package com.kmb.downloader.ui.screens
 
+import android.content.Intent
 import android.net.Uri
 import android.widget.MediaController
 import android.widget.VideoView
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -41,6 +43,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,6 +53,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -58,13 +62,16 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -108,6 +115,7 @@ fun WhatsAppStatusScreen(
     val previewItem by viewModel.previewItem.collectAsState()
     val message by viewModel.message.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showDirectChatDialog by remember { mutableStateOf(false) }
 
     val openDocumentTreeLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -168,6 +176,9 @@ fun WhatsAppStatusScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showDirectChatDialog = true }) {
+                        Icon(Icons.Default.Chat, contentDescription = "Direct Chat", tint = WhatsAppGreen)
+                    }
                     IconButton(onClick = { viewModel.loadStatuses(context) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = KmbSecondary)
                     }
@@ -463,6 +474,88 @@ fun WhatsAppStatusScreen(
                 }
             }
         }
+    }
+
+    // WhatsApp Direct Chat Dialog
+    if (showDirectChatDialog) {
+        var phoneInput by remember { mutableStateOf("") }
+        var msgInput by remember { mutableStateOf("") }
+
+        AlertDialog(
+            onDismissRequest = { showDirectChatDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(32.dp).clip(CircleShape).background(WhatsAppGreen),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Chat, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("Direct Chat", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("Chat without saving contact", style = MaterialTheme.typography.labelSmall, color = WhatsAppGreen)
+                    }
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Enter phone number with country code:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = phoneInput,
+                        onValueChange = { phoneInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Phone Number") },
+                        placeholder = { Text("+1234567890 / 03001234567") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    OutlinedTextField(
+                        value = msgInput,
+                        onValueChange = { msgInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Message (Optional)") },
+                        placeholder = { Text("Hi, I wanted to reach out...") },
+                        maxLines = 3,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val rawPhone = phoneInput.trim()
+                        if (rawPhone.isNotBlank()) {
+                            showDirectChatDialog = false
+                            val cleanPhone = rawPhone.replace(Regex("[^0-9]"), "")
+                            val uri = Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=${Uri.encode(msgInput.trim())}")
+                            val chatIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                                setPackage(if (isBusiness) "com.whatsapp.w4b" else "com.whatsapp")
+                            }
+                            try {
+                                context.startActivity(chatIntent)
+                            } catch (e: Exception) {
+                                val fallback = Intent(Intent.ACTION_VIEW, uri)
+                                try { context.startActivity(fallback) } catch (_: Exception) {}
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = WhatsAppGreen),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Open Chat", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDirectChatDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     // Full screen preview dialog

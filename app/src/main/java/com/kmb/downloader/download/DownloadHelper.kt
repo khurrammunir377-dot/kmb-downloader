@@ -138,11 +138,18 @@ object DownloadHelper {
      * Builds a clean, highly reliable yt-dlp request.
      * Uses standard options that work across all platforms without 403 Forbidden issues.
      */
-    fun buildRequest(url: String, quality: String, outputDir: File): YoutubeDLRequest {
+    fun buildRequest(url: String, quality: String, outputDir: File, timeRange: String? = null): YoutubeDLRequest {
         val request = YoutubeDLRequest(url)
 
         // Standard output format template
         request.addOption("-o", "${outputDir.absolutePath}/%(title)s [%(id)s].%(ext)s")
+
+        // Download specific time range if specified (e.g. 01:50-02:55)
+        if (!timeRange.isNullOrBlank()) {
+            val cleanRange = timeRange.trim().removePrefix("*")
+            request.addOption("--download-sections", "*$cleanRange")
+            request.addOption("--force-keyframes-at-cuts")
+        }
 
         // Select optimal format based on user choice
         val formatSelector = when (quality) {

@@ -97,6 +97,7 @@ class DownloadService : Service() {
         }
 
         val quality = intent.getStringExtra(EXTRA_QUALITY) ?: "Best"
+        val timeRange = intent.getStringExtra(EXTRA_TIME_RANGE)
         activeJobsCount.incrementAndGet()
         resetServiceScope()
 
@@ -127,7 +128,7 @@ class DownloadService : Service() {
 
                 // Safe output directory in app internal storage (100% writable Linux subprocess)
                 val internalOutputDir = DownloadHelper.getDownloadDir(this@DownloadService)
-                val request = DownloadHelper.buildRequest(url, quality, internalOutputDir)
+                val request = DownloadHelper.buildRequest(url, quality, internalOutputDir, timeRange)
 
                 val existingFiles = internalOutputDir.listFiles()?.map { it.absolutePath }?.toSet() ?: emptySet()
 
@@ -376,5 +377,6 @@ class DownloadService : Service() {
         const val EXTRA_URL = "url"
         const val EXTRA_QUALITY = "quality"
         const val EXTRA_ITEM_ID = "item_id"
+        const val EXTRA_TIME_RANGE = "time_range"
     }
 }

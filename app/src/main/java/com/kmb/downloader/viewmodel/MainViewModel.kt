@@ -70,10 +70,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _showSplash = MutableStateFlow(true)
     val showSplash: StateFlow<Boolean> = _showSplash.asStateFlow()
 
+    private val _trimEnabled = MutableStateFlow(false)
+    val trimEnabled: StateFlow<Boolean> = _trimEnabled.asStateFlow()
+
+    private val _trimStartTime = MutableStateFlow("")
+    val trimStartTime: StateFlow<String> = _trimStartTime.asStateFlow()
+
+    private val _trimEndTime = MutableStateFlow("")
+    val trimEndTime: StateFlow<String> = _trimEndTime.asStateFlow()
+
     val qualities = listOf("Best", "1080p", "720p", "480p", "Audio Only")
 
     fun finishSplash() {
         _showSplash.value = false
+    }
+
+    fun toggleTrim(enabled: Boolean) {
+        _trimEnabled.value = enabled
+    }
+
+    fun setTrimStartTime(time: String) {
+        _trimStartTime.value = time
+    }
+
+    fun setTrimEndTime(time: String) {
+        _trimEndTime.value = time
     }
 
     fun onUrlChange(newUrl: String) {
@@ -230,7 +251,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun startDownload(urlToDownload: String? = null, qualityOverride: String? = null) {
+    fun startDownload(urlToDownload: String? = null, qualityOverride: String? = null, timeRangeOverride: String? = null) {
         val currentUrl = urlToDownload ?: _url.value
         if (currentUrl.isBlank()) {
             _message.value = "Paste a video link first"
@@ -255,9 +276,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     it != "Loading preview…" && it != "Copied link" && it.isNotBlank()
                 } ?: "Downloading…"
 
+                val timeRange = timeRangeOverride ?: if (_trimEnabled.value && _trimStartTime.value.isNotBlank() && _trimEndTime.value.isNotBlank()) {
+                    "${_trimStartTime.value.trim()}-${_trimEndTime.value.trim()}"
+                } else null
+
                 val item = DownloadItem(
                     url = clean,
-                    title = initialTitle,
+                    title = if (!timeRange.isNullOrBlank()) "$initialTitle [Trim $timeRange]" else initialTitle,
                     thumbnail = saved?.thumbnail,
                     platform = platform,
                     quality = q,
@@ -269,6 +294,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     putExtra(DownloadService.EXTRA_URL, clean)
                     putExtra(DownloadService.EXTRA_QUALITY, q)
                     putExtra(DownloadService.EXTRA_ITEM_ID, id)
+                    if (!timeRange.isNullOrBlank()) {
+                        putExtra(DownloadService.EXTRA_TIME_RANGE, timeRange)
+                    }
                 }
 
                 try {
@@ -282,7 +310,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     savedDao.update(saved.copy(isDownloaded = true))
                 }
 
-                _message.value = "⬇ Download started!"
+                _message.value = if (!timeRange.isNullOrBlank()) "⬇ Trimming & downloading section ($timeRange)..." else "⬇ Download started!"
                 if (urlToDownload == null) _url.value = ""
 
             } catch (e: Exception) {
@@ -290,6 +318,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun trimExistingDownload(item: DownloadItem, start: String, end: String) {
+        val path = item.filePath
+        if (path.isNullOrBlank()) {
+            _message.value = "File path not available for trimming"
+            return
+        }
+        viewModelScope.launch {
+            _message.value = "✂️ Trimming video ($start to $end)…"
+            val isAudio = item.quality == "Audio Only"
+            val result = com.kmb.downloader.tools.VideoTrimmerHelper.trimMedia(
+                getApplication(),
+                path,
+                start,
+                end,
+                isAudioOnly = isAudio
+            )
+            result.fold(
+                onSuccess = { file ->
+                    _message.value = "✓ Trimmed clip saved to Gallery & Downloads!"
+                },
+                onFailure = { err ->
+                    _message.value = "Trim error: ${err.message}"
+                }
+            )
         }
     }
 

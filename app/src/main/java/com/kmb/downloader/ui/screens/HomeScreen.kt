@@ -3,6 +3,8 @@ package com.kmb.downloader.ui.screens
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,9 +34,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -49,6 +53,8 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,6 +70,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,6 +83,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -96,6 +104,8 @@ import com.kmb.downloader.ui.theme.KmbPrimary
 import com.kmb.downloader.ui.theme.KmbPrimaryLight
 import com.kmb.downloader.ui.theme.KmbSecondary
 import com.kmb.downloader.viewmodel.MainViewModel
+
+const val KMB_SUPPORT_EMAIL = "mkmbapps@gmail.com"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -119,6 +129,11 @@ fun HomeScreen(
     var showManualInput by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var itemToTrim by remember { mutableStateOf<DownloadItem?>(null) }
+
+    val trimEnabled by viewModel.trimEnabled.collectAsState()
+    val trimStartTime by viewModel.trimStartTime.collectAsState()
+    val trimEndTime by viewModel.trimEndTime.collectAsState()
 
     // Active downloading item
     val activeDownload = downloads.firstOrNull { it.status == "Downloading" }
@@ -294,6 +309,20 @@ fun HomeScreen(
                                     }
                                 )
                                 HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("Send Feedback") },
+                                    onClick = {
+                                        showMenu = false
+                                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                            data = Uri.parse("mailto:$KMB_SUPPORT_EMAIL")
+                                            putExtra(Intent.EXTRA_SUBJECT, "KMB Downloader Feedback")
+                                        }
+                                        try { context.startActivity(intent) } catch (_: Exception) {}
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Email, contentDescription = null, tint = KmbSecondary)
+                                    }
+                                )
                                 DropdownMenuItem(
                                     text = { Text("About & Info") },
                                     onClick = {
@@ -522,6 +551,89 @@ fun HomeScreen(
                 }
             }
 
+            // Video Time-Range Trimmer Card (Optional)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(
+                            1.dp,
+                            if (trimEnabled) KmbPrimary.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            RoundedCornerShape(12.dp)
+                        ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (trimEnabled) KmbPrimary.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.toggleTrim(!trimEnabled) }
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.ContentCut,
+                                    contentDescription = null,
+                                    tint = if (trimEnabled) KmbPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "Trim Specific Part (e.g. 01:50 to 02:55)",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (trimEnabled) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (trimEnabled) KmbPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = trimEnabled,
+                                onCheckedChange = { viewModel.toggleTrim(it) },
+                                modifier = Modifier.scale(0.8f)
+                            )
+                        }
+
+                        AnimatedVisibility(visible = trimEnabled) {
+                            Column(modifier = Modifier.padding(top = 8.dp)) {
+                                Text(
+                                    text = "Downloads ONLY this section, saving your time and mobile data.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = trimStartTime,
+                                        onValueChange = { viewModel.setTrimStartTime(it) },
+                                        modifier = Modifier.weight(1f),
+                                        label = { Text("Start Time", fontSize = 11.sp) },
+                                        placeholder = { Text("01:50", fontSize = 11.sp) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    OutlinedTextField(
+                                        value = trimEndTime,
+                                        onValueChange = { viewModel.setTrimEndTime(it) },
+                                        modifier = Modifier.weight(1f),
+                                        label = { Text("End Time", fontSize = 11.sp) },
+                                        placeholder = { Text("02:55", fontSize = 11.sp) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Manual Link Input (Expandable)
             item {
                 Row(
@@ -693,6 +805,7 @@ fun HomeScreen(
                         liveProgress = liveP,
                         onPlay = { viewModel.openFile(context, item) },
                         onShare = { viewModel.shareFile(context, item) },
+                        onTrim = { itemToTrim = item },
                         onCancel = { viewModel.cancelDownload(item.id) },
                         onDelete = { viewModel.deleteDownload(item) }
                     )
@@ -703,6 +816,78 @@ fun HomeScreen(
         }
     }
 
+    // Video Trimming Dialog for Completed Items
+    itemToTrim?.let { item ->
+        var startTimeInput by remember { mutableStateOf("00:00") }
+        var endTimeInput by remember { mutableStateOf("01:00") }
+
+        AlertDialog(
+            onDismissRequest = { itemToTrim = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ContentCut, contentDescription = null, tint = KmbPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Trim Video / Audio Clip", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = item.title.ifBlank { item.url },
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Enter timestamps (e.g. 00:30 to 01:45):",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = startTimeInput,
+                            onValueChange = { startTimeInput = it },
+                            modifier = Modifier.weight(1f),
+                            label = { Text("Start") },
+                            placeholder = { Text("00:00") },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = endTimeInput,
+                            onValueChange = { endTimeInput = it },
+                            modifier = Modifier.weight(1f),
+                            label = { Text("End") },
+                            placeholder = { Text("01:00") },
+                            singleLine = true
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val target = itemToTrim
+                        itemToTrim = null
+                        if (target != null) {
+                            viewModel.trimExistingDownload(target, startTimeInput, endTimeInput)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary)
+                ) {
+                    Text("Trim & Save", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToTrim = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // About & App Info Dialog
     if (showAboutDialog) {
         AlertDialog(
@@ -711,7 +896,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v3.5.2", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v3.6.0", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -724,12 +909,33 @@ fun HomeScreen(
                     Text(
                         "• All-in-One video and audio downloader\n" +
                         "• Supports YouTube, Instagram, TikTok, Facebook, X, and 1000+ sites\n" +
+                        "• Precision Time-Range Trimming (e.g. 01:50 to 02:55)\n" +
                         "• Full WhatsApp & WhatsApp Business Status Saver\n" +
                         "• Direct phone Gallery MediaStore integration\n" +
                         "• Ultra-fast multi-threaded download engine",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:$KMB_SUPPORT_EMAIL")
+                                putExtra(Intent.EXTRA_SUBJECT, "KMB Downloader Feedback")
+                            }
+                            try { context.startActivity(intent) } catch (_: Exception) {}
+                        }
+                    ) {
+                        Icon(Icons.Default.Email, contentDescription = null, tint = KmbSecondary, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Support: $KMB_SUPPORT_EMAIL",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = KmbSecondary
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -864,7 +1070,7 @@ fun CompactSavedLinkCard(
 }
 
 /**
- * Compact Download History Card (Reduced height & sleek layout)
+ * Compact Download History Card (With 1-Tap Play, Share, and ✂️ Trim)
  */
 @Composable
 fun CompactDownloadHistoryCard(
@@ -872,6 +1078,7 @@ fun CompactDownloadHistoryCard(
     liveProgress: Float? = null,
     onPlay: () -> Unit,
     onShare: () -> Unit,
+    onTrim: () -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -997,6 +1204,14 @@ fun CompactDownloadHistoryCard(
                                 contentDescription = "Play",
                                 tint = KmbSecondary,
                                 modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        IconButton(onClick = onTrim, modifier = Modifier.size(30.dp)) {
+                            Icon(
+                                Icons.Default.ContentCut,
+                                contentDescription = "Trim Clip",
+                                tint = KmbPrimaryLight,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                         IconButton(onClick = onShare, modifier = Modifier.size(30.dp)) {
