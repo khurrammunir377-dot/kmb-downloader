@@ -1,7 +1,19 @@
 package com.kmb.downloader.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,18 +22,21 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kmb.downloader.ui.theme.DarkBorder
+import com.kmb.downloader.ui.theme.DarkSurface
+import com.kmb.downloader.ui.theme.TextSecondary
 
 data class NavItem(
     val route: String,
@@ -44,41 +59,56 @@ fun KmbBottomNav(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xFF0B0D17),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        border = BorderStroke(1.dp, Color(0xFF1E2438))
+        color = DarkSurface,
+        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
+        border = BorderStroke(1.dp, DarkBorder)
     ) {
-        NavigationBar(
-            containerColor = Color.Transparent,
-            tonalElevation = 0.dp
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .height(54.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
                 val isSelected = currentRoute == item.route
-                NavigationBarItem(
-                    selected = isSelected,
-                    onClick = { onNavigate(item.route) },
-                    icon = {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onNavigate(item.route) }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .height(26.dp)
+                            .clip(RoundedCornerShape(13.dp))
+                            .background(if (isSelected) item.activeColor.copy(alpha = 0.18f) else Color.Transparent)
+                            .padding(horizontal = 14.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.title,
-                            modifier = Modifier.size(24.dp)
+                            tint = if (isSelected) item.activeColor else TextSecondary,
+                            modifier = Modifier.size(20.dp)
                         )
-                    },
-                    label = {
-                        Text(
-                            text = item.title,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                        )
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = item.activeColor,
-                        selectedTextColor = item.activeColor,
-                        unselectedIconColor = Color(0xFF94A3B8),
-                        unselectedTextColor = Color(0xFF94A3B8),
-                        indicatorColor = item.activeColor.copy(alpha = 0.18f)
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = item.title,
+                        fontSize = 10.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) item.activeColor else TextSecondary,
+                        maxLines = 1
                     )
-                )
+                }
             }
         }
     }

@@ -11,16 +11,16 @@ val KmbGlow = Color(0xFFB388FF)
 val KmbSuccess = Color(0xFF10B981)
 val KmbGold = Color(0xFFFFD700)
 
-// Premium Deep Obsidian Palette
-val DarkBackground = Color(0xFF0B0D17)
-val DarkSurface = Color(0xFF131726)
-val DarkSurfaceCard = Color(0xFF1B2032)
-val DarkBorder = Color(0xFF262D42)
+// Modern Rich Slate Palette (Soft, Elegant, Not Pitch Black)
+val DarkBackground = Color(0xFF121622)
+val DarkSurface = Color(0xFF1C2234)
+val DarkSurfaceCard = Color(0xFF242C42)
+val DarkBorder = Color(0xFF2D3752)
 
 // Typography Palette
 val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFF94A3B8)
-val TextMuted = Color(0xFF64748B)
+val TextSecondary = Color(0xFFA0ABC0)
+val TextMuted = Color(0xFF718096)
 
 // Legacy alias compatibility
 val BackgroundDark = DarkBackground
