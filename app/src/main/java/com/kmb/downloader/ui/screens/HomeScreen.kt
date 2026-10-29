@@ -110,6 +110,7 @@ import com.kmb.downloader.ui.components.GlowCard
 import com.kmb.downloader.ui.components.ReferralDialog
 import com.kmb.downloader.ui.components.RotatingDownloadOrb
 import kotlinx.coroutines.launch
+import com.kmb.downloader.ui.theme.DarkBackground
 import com.kmb.downloader.ui.theme.KmbGlow
 import com.kmb.downloader.ui.theme.KmbPrimary
 import com.kmb.downloader.ui.theme.KmbPrimaryLight
@@ -374,7 +375,7 @@ fun HomeScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0F172A)
+                    containerColor = DarkBackground
                 )
             )
         },

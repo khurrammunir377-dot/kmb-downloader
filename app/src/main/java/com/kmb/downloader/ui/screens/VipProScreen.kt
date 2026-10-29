@@ -90,6 +90,12 @@ import androidx.core.content.FileProvider
 import com.kmb.downloader.data.ReferralManager
 import com.kmb.downloader.data.VaultFileItem
 import com.kmb.downloader.data.VaultManager
+import com.kmb.downloader.ui.theme.DarkBackground
+import com.kmb.downloader.ui.theme.DarkBorder
+import com.kmb.downloader.ui.theme.DarkSurface
+import com.kmb.downloader.ui.theme.DarkSurfaceCard
+import com.kmb.downloader.ui.theme.TextPrimary
+import com.kmb.downloader.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -192,7 +198,7 @@ fun VipProScreen() {
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -212,10 +218,10 @@ fun VipProScreen() {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (proState.isPro) Color(0xFF2E2305) else Color(0xFF1E222B)
+                        containerColor = if (proState.isPro) Color(0xFF1E1A10) else DarkSurface
                     ),
                     border = CardDefaults.outlinedCardBorder().copy(
-                        brush = if (proState.isPro) goldGradient else Brush.linearGradient(listOf(Color(0xFF4B5563), Color(0xFF374151)))
+                        brush = if (proState.isPro) goldGradient else Brush.linearGradient(listOf(DarkBorder, DarkBorder))
                     )
                 ) {
                     Column(
@@ -276,7 +282,10 @@ fun VipProScreen() {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF131722))
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = Brush.linearGradient(listOf(DarkBorder, DarkBorder))
+                    )
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -287,7 +296,7 @@ fun VipProScreen() {
                             text = "YOUR EXCLUSIVE REFERRAL CODE",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF9CA3AF),
+                            color = TextSecondary,
                             letterSpacing = 1.2.sp
                         )
 
@@ -354,7 +363,10 @@ fun VipProScreen() {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222B))
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = Brush.linearGradient(listOf(DarkBorder, DarkBorder))
+                    )
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -386,7 +398,7 @@ fun VipProScreen() {
                                 .height(10.dp)
                                 .clip(RoundedCornerShape(5.dp)),
                             color = Color(0xFFFFD700),
-                            trackColor = Color(0xFF374151)
+                            trackColor = DarkBorder
                         )
 
                         Row(
@@ -407,7 +419,10 @@ fun VipProScreen() {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222B))
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
+                    border = CardDefaults.outlinedCardBorder().copy(
+                        brush = Brush.linearGradient(listOf(DarkBorder, DarkBorder))
+                    )
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -422,7 +437,7 @@ fun VipProScreen() {
                         Text(
                             text = "Enter a friend's code to instantly receive +3 Days of Free VIP Pro!",
                             fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
+                            color = TextSecondary
                         )
 
                         Row(
@@ -484,7 +499,7 @@ fun VipProScreen() {
                             showVaultPinDialog = true
                         },
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1F2C)),
+                    colors = CardDefaults.cardColors(containerColor = DarkSurface),
                     border = CardDefaults.outlinedCardBorder().copy(
                         brush = Brush.horizontalGradient(listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)))
                     )

@@ -188,7 +188,7 @@ fun WhatsAppStatusScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0F172A)
+                    containerColor = com.kmb.downloader.ui.theme.DarkBackground
                 )
             )
         }
@@ -260,8 +260,8 @@ fun WhatsAppStatusScreen(
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .clickable { showDirectChatDialog = true },
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = WhatsAppGreen.copy(alpha = 0.12f)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, WhatsAppGreen.copy(alpha = 0.45f))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF101E17)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF25D366).copy(alpha = 0.35f))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

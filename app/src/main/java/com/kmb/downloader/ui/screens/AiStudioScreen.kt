@@ -237,7 +237,7 @@ fun AiStudioScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = com.kmb.downloader.ui.theme.DarkBackground)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -310,7 +310,7 @@ fun StudioFeatureCard(
                 RoundedCornerShape(14.dp)
             ),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF161A24))
+        colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurface)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
