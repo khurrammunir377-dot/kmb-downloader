@@ -184,6 +184,7 @@ fun AiStudioScreen(
     )
 
     Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {
             val activeItem = studioItems.firstOrNull { it.tool == activeTool }
             TopAppBar(

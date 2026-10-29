@@ -1,8 +1,7 @@
 package com.kmb.downloader.ui.components
 
-import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,10 +13,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -43,46 +42,44 @@ fun KmbBottomNav(
         NavItem("vip_pro", "VIP Pro", Icons.Default.WorkspacePremium, Color(0xFFFFD700))
     )
 
-    NavigationBar(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .border(
-                width = 1.dp,
-                color = Color(0xFF1E2438),
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-            ),
-        containerColor = Color(0xFF0B0D17),
-        tonalElevation = 0.dp
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF0B0D17),
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        border = BorderStroke(1.dp, Color(0xFF1E2438))
     ) {
-        items.forEach { item ->
-            val isSelected = currentRoute == item.route
-            NavigationBarItem(
-                selected = isSelected,
-                onClick = { onNavigate(item.route) },
-                icon = {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.title,
-                        modifier = Modifier.size(22.dp)
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp
+        ) {
+            items.forEach { item ->
+                val isSelected = currentRoute == item.route
+                NavigationBarItem(
+                    selected = isSelected,
+                    onClick = { onNavigate(item.route) },
+                    icon = {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.title,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = item.title,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = item.activeColor,
+                        selectedTextColor = item.activeColor,
+                        unselectedIconColor = Color(0xFF94A3B8),
+                        unselectedTextColor = Color(0xFF94A3B8),
+                        indicatorColor = item.activeColor.copy(alpha = 0.18f)
                     )
-                },
-                label = {
-                    Text(
-                        text = item.title,
-                        fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                    )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = item.activeColor,
-                    selectedTextColor = item.activeColor,
-                    unselectedIconColor = Color(0xFF94A3B8),
-                    unselectedTextColor = Color(0xFF94A3B8),
-                    indicatorColor = item.activeColor.copy(alpha = 0.16f)
                 )
-            )
+            }
         }
     }
 }
