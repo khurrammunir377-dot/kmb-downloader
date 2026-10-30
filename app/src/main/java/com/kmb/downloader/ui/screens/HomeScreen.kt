@@ -1,11 +1,13 @@
 package com.kmb.downloader.ui.screens
 
 import android.Manifest
+import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
@@ -146,6 +149,7 @@ fun HomeScreen(
     var showReferralDialog by remember { mutableStateOf(false) }
     var itemToTrim by remember { mutableStateOf<DownloadItem?>(null) }
     var audioStudioItem by remember { mutableStateOf<DownloadItem?>(null) }
+    var detailsItemToShow by remember { mutableStateOf<MediaDetailsInfo?>(null) }
     val proState by ReferralManager.proState.collectAsState()
 
     val trimEnabled by viewModel.trimEnabled.collectAsState()
@@ -740,11 +744,24 @@ fun HomeScreen(
                     items = savedLinks,
                     key = { link -> "saved_${link.id}_${link.url.hashCode()}" }
                 ) { link ->
+                    val formattedDate = viewModel.formatDate(link.detectedAt)
                     CompactSavedLinkCard(
                         link = link,
-                        dateText = viewModel.formatDate(link.detectedAt),
+                        dateText = formattedDate,
                         onDownload = { viewModel.startDownload(link.url) },
-                        onDelete = { viewModel.deleteSavedLink(link.id) }
+                        onDelete = { viewModel.deleteSavedLink(link.id) },
+                        onClickIcon = {
+                            detailsItemToShow = MediaDetailsInfo(
+                                title = link.title ?: link.url,
+                                platform = link.platform,
+                                url = link.url,
+                                dateText = formattedDate,
+                                quality = "Original Web Stream",
+                                status = if (link.isDownloaded) "Downloaded" else "Saved for Later",
+                                thumbnail = link.thumbnail,
+                                onDownload = { viewModel.startDownload(link.url) }
+                            )
+                        }
                     )
                 }
             }
@@ -785,6 +802,7 @@ fun HomeScreen(
                     key = { item -> "download_${item.id}_${item.url.hashCode()}" }
                 ) { item ->
                     val liveP = liveProgressMap[item.id]
+                    val formattedDate = viewModel.formatDate(item.createdAt)
                     CompactDownloadHistoryCard(
                         item = item,
                         liveProgress = liveP,
@@ -793,7 +811,23 @@ fun HomeScreen(
                         onTrim = { itemToTrim = item },
                         onAudioStudio = { audioStudioItem = item },
                         onCancel = { viewModel.cancelDownload(item.id) },
-                        onDelete = { viewModel.deleteDownload(item) }
+                        onDelete = { viewModel.deleteDownload(item) },
+                        onClickIcon = {
+                            detailsItemToShow = MediaDetailsInfo(
+                                title = item.title.ifBlank { item.url },
+                                platform = item.platform,
+                                url = item.url,
+                                dateText = formattedDate,
+                                quality = item.quality,
+                                fileSize = item.fileSize,
+                                status = item.status,
+                                filePath = item.filePath,
+                                thumbnail = item.thumbnail,
+                                onPlay = if (item.status == "Completed") { { viewModel.openFile(context, item) } } else null,
+                                onShare = if (item.status == "Completed") { { viewModel.shareFile(context, item) } } else null,
+                                onTrim = if (item.status == "Completed") { { itemToTrim = item } } else null
+                            )
+                        }
                     )
                 }
             }
@@ -882,7 +916,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v3.9.0", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v3.10.5", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -956,17 +990,134 @@ fun HomeScreen(
             }
         )
     }
+
+    // Comprehensive Media & Link Details Dialog
+    detailsItemToShow?.let { info ->
+        MediaDetailsDialog(
+            info = info,
+            onDismiss = { detailsItemToShow = null }
+        )
+    }
+}
+
+data class MediaDetailsInfo(
+    val title: String,
+    val platform: String,
+    val url: String,
+    val dateText: String,
+    val duration: String? = null,
+    val quality: String? = null,
+    val fileSize: String? = null,
+    val status: String? = null,
+    val filePath: String? = null,
+    val thumbnail: String? = null,
+    val onDownload: (() -> Unit)? = null,
+    val onPlay: (() -> Unit)? = null,
+    val onShare: (() -> Unit)? = null,
+    val onTrim: (() -> Unit)? = null
+)
+
+/**
+ * Authentic Platform Icon Badge
+ */
+@Composable
+fun PlatformIconBadge(
+    platform: String,
+    thumbnail: String? = null,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 38.dp,
+    onClick: (() -> Unit)? = null
+) {
+    val norm = platform.lowercase()
+    val isYouTube = norm.contains("youtube") || norm.contains("youtu")
+    val isTikTok = norm.contains("tiktok")
+    val isInstagram = norm.contains("instagram") || norm.contains("insta")
+    val isFacebook = norm.contains("facebook") || norm.contains("fb")
+    val isTwitter = norm.contains("twitter") || norm == "x" || norm.contains("x.com")
+    val isWhatsApp = norm.contains("whatsapp")
+    val isPinterest = norm.contains("pinterest")
+    val isReddit = norm.contains("reddit")
+
+    val (badgeBg, badgeLabel) = when {
+        isYouTube -> Pair(Color(0xFFFF0000), "▶")
+        isTikTok -> Pair(Color(0xFF010101), "♪")
+        isInstagram -> Pair(Color(0xFFE1306C), "📷")
+        isFacebook -> Pair(Color(0xFF1877F2), "f")
+        isTwitter -> Pair(Color(0xFF000000), "𝕏")
+        isWhatsApp -> Pair(Color(0xFF25D366), "💬")
+        isPinterest -> Pair(Color(0xFFE60023), "P")
+        isReddit -> Pair(Color(0xFFFF4500), "🔴")
+        else -> Pair(KmbPrimary, platform.take(2).uppercase())
+    }
+
+    val instaBrush = if (isInstagram) {
+        Brush.linearGradient(listOf(Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)))
+    } else {
+        Brush.linearGradient(listOf(badgeBg, badgeBg.copy(alpha = 0.88f)))
+    }
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(9.dp))
+            .clickable(enabled = onClick != null) { onClick?.invoke() },
+        contentAlignment = Alignment.Center
+    ) {
+        if (!thumbnail.isNullOrBlank()) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(thumbnail)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = platform,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            // Authentic platform badge overlay in corner
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(1.dp)
+                    .size(15.dp)
+                    .clip(CircleShape)
+                    .background(instaBrush),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = badgeLabel,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(instaBrush),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = badgeLabel,
+                    fontSize = if (badgeLabel.length <= 2) 13.sp else 10.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White
+                )
+            }
+        }
+    }
 }
 
 /**
- * Compact Saved Link Card (Reduced height & sleek layout)
+ * Compact Saved Link Card (Reduced height, authentic platform icon & copy button)
  */
 @Composable
 fun CompactSavedLinkCard(
     link: SavedLink,
     dateText: String,
     onDownload: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClickIcon: () -> Unit
 ) {
     val context = LocalContext.current
     Card(
@@ -994,36 +1145,12 @@ fun CompactSavedLinkCard(
                 .fillMaxWidth()
                 .padding(horizontal = 10.dp, vertical = 7.dp)
         ) {
-            if (!link.thumbnail.isNullOrBlank()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(link.thumbnail)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = link.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(width = 44.dp, height = 36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(listOf(KmbPrimary, KmbPrimaryLight))
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = link.platform.take(2).uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+            PlatformIconBadge(
+                platform = link.platform,
+                thumbnail = link.thumbnail,
+                size = 38.dp,
+                onClick = onClickIcon
+            )
 
             Spacer(Modifier.width(10.dp))
 
@@ -1070,6 +1197,24 @@ fun CompactSavedLinkCard(
                 Spacer(Modifier.width(2.dp))
             }
 
+            // Copy Link Button
+            IconButton(
+                onClick = {
+                    val clip = ClipData.newPlainText("URL", link.url)
+                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    cm?.setPrimaryClip(clip)
+                    Toast.makeText(context, "Link copied to clipboard! 📋", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.size(30.dp)
+            ) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Copy Link",
+                    tint = KmbSecondary,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+
             IconButton(onClick = onDownload, modifier = Modifier.size(30.dp)) {
                 Icon(Icons.Default.Download, contentDescription = "Download", tint = KmbPrimary, modifier = Modifier.size(18.dp))
             }
@@ -1081,7 +1226,7 @@ fun CompactSavedLinkCard(
 }
 
 /**
- * Compact Download History Card (With 1-Tap Play, Share, and ✂️ Trim)
+ * Compact Download History Card (With authentic clickable platform icon, Play, Share, and ✂️ Trim)
  */
 @Composable
 fun CompactDownloadHistoryCard(
@@ -1092,9 +1237,9 @@ fun CompactDownloadHistoryCard(
     onTrim: () -> Unit,
     onAudioStudio: () -> Unit,
     onCancel: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClickIcon: () -> Unit
 ) {
-    val context = LocalContext.current
     val currentProgress = liveProgress ?: item.progress
     val isDownloading = item.status == "Downloading"
 
@@ -1126,35 +1271,12 @@ fun CompactDownloadHistoryCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Thumbnail or platform circle
-                if (!item.thumbnail.isNullOrBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(item.thumbnail)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = item.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(width = 44.dp, height = 36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(KmbPrimary, KmbPrimaryLight))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = item.platform.take(2).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                PlatformIconBadge(
+                    platform = item.platform,
+                    thumbnail = item.thumbnail,
+                    size = 38.dp,
+                    onClick = onClickIcon
+                )
 
                 Spacer(Modifier.width(10.dp))
 
@@ -1281,3 +1403,222 @@ fun CompactDownloadHistoryCard(
         }
     }
 }
+
+/**
+ * Media Details Dialog (Shows title, original app icon, date/time, duration, size, and actions)
+ */
+@Composable
+fun MediaDetailsDialog(
+    info: MediaDetailsInfo,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PlatformIconBadge(platform = info.platform, thumbnail = info.thumbnail, size = 36.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = info.platform,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Text(
+                        text = info.status ?: "Media Details",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = KmbSecondary
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Video Title
+                Column {
+                    Text(
+                        text = "TITLE",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = info.title,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                // Date & Time + Format
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "DATE & TIME",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = info.dateText.ifBlank { "Recently Added" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    if (!info.quality.isNullOrBlank()) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "QUALITY / FORMAT",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = info.quality,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = KmbPrimaryLight
+                            )
+                        }
+                    }
+                }
+
+                // File Size & Duration
+                if (!info.fileSize.isNullOrBlank() || !info.duration.isNullOrBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        if (!info.fileSize.isNullOrBlank()) {
+                            Column {
+                                Text(
+                                    text = "FILE SIZE",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = info.fileSize,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                        if (!info.duration.isNullOrBlank()) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "DURATION",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = info.duration,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // File Path (if stored locally)
+                if (!info.filePath.isNullOrBlank()) {
+                    Column {
+                        Text(
+                            text = "STORED AT",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = info.filePath,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // URL + 1-Tap Copy
+                Column {
+                    Text(
+                        text = "SOURCE URL",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = info.url,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = "Copy URL",
+                            tint = KmbSecondary,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable {
+                                    val clip = ClipData.newPlainText("URL", info.url)
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                    cm?.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Link copied to clipboard! 📋", Toast.LENGTH_SHORT).show()
+                                }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (info.onPlay != null) {
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            info.onPlay.invoke()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Play", color = Color.White, fontSize = 12.sp)
+                    }
+                }
+                if (info.onDownload != null) {
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            info.onDownload.invoke()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Download", color = Color.White, fontSize = 12.sp)
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Close", color = Color.White.copy(alpha = 0.7f))
+                }
+            }
+        }
+    )
+}
+

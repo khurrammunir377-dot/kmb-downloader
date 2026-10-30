@@ -3,10 +3,8 @@ package com.kmb.downloader.tools
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -17,11 +15,10 @@ import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.max
 
 enum class BgMode {
     TRANSPARENT,
@@ -32,25 +29,44 @@ enum class BgMode {
     BLUR
 }
 
+data class SegmentationResult(
+    val processedBitmap: Bitmap,
+    val alphaMask: FloatArray,
+    val maskWidth: Int,
+    val maskHeight: Int
+)
+
 object ImageBgRemoverHelper {
     private const val TAG = "ImageBgRemoverHelper"
 
     /**
-     * Removes the background from a bitmap using on-device ML Kit selfie/subject segmentation.
+     * Scales bitmap to safe max dimension for high quality & smooth ML inference.
      */
-    suspend fun removeBackground(
-        context: Context,
-        inputBitmap: Bitmap,
-        mode: BgMode = BgMode.TRANSPARENT
-    ): Result<Bitmap> = withContext(Dispatchers.Default) {
+    fun prepareBitmap(source: Bitmap, maxDim: Int = 1280): Bitmap {
+        val w = source.width
+        val h = source.height
+        if (w <= maxDim && h <= maxDim) return source
+        val scale = maxDim.toFloat() / max(w, h).toFloat()
+        val nw = (w * scale).toInt().coerceAtLeast(1)
+        val nh = (h * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(source, nw, nh, true)
+    }
+
+    /**
+     * Extracts a high-definition segmentation mask using on-device Google ML Kit.
+     */
+    suspend fun extractSegmentationMask(
+        inputBitmap: Bitmap
+    ): Result<SegmentationResult> = withContext(Dispatchers.Default) {
         try {
+            val scaledBitmap = prepareBitmap(inputBitmap, 1280)
             val options = SelfieSegmenterOptions.Builder()
                 .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
-                .enableRawSizeMask()
+                // Note: Not enabling raw size mask allows ML Kit to return full-sized mask
                 .build()
 
             val segmenter = Segmentation.getClient(options)
-            val image = InputImage.fromBitmap(inputBitmap, 0)
+            val image = InputImage.fromBitmap(scaledBitmap, 0)
 
             val mask = suspendCancellableCoroutine { continuation ->
                 segmenter.process(image)
@@ -65,86 +81,125 @@ object ImageBgRemoverHelper {
             val maskBuffer: ByteBuffer = mask.buffer
             val maskWidth = mask.width
             val maskHeight = mask.height
-
-            val width = inputBitmap.width
-            val height = inputBitmap.height
-
-            val outputBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val inputPixels = IntArray(width * height)
-            inputBitmap.getPixels(inputPixels, 0, width, 0, 0, width, height)
-
-            val outputPixels = IntArray(width * height)
             maskBuffer.rewind()
 
-            // Pre-calculate background color if solid
-            val bgColor = when (mode) {
-                BgMode.WHITE -> Color.WHITE
-                BgMode.DARK_STUDIO -> Color.rgb(30, 30, 35)
-                BgMode.BLUE -> Color.rgb(37, 99, 235)
-                BgMode.PURPLE -> Color.rgb(124, 58, 237)
-                else -> Color.TRANSPARENT
-            }
-
-            val scaleX = maskWidth.toFloat() / width.toFloat()
-            val scaleY = maskHeight.toFloat() / height.toFloat()
-
-            for (y in 0 until height) {
-                for (x in 0 until width) {
-                    val index = y * width + x
-                    val origColor = inputPixels[index]
-
-                    val mx = (x * scaleX).toInt().coerceIn(0, maskWidth - 1)
-                    val my = (y * scaleY).toInt().coerceIn(0, maskHeight - 1)
-                    val maskIndex = (my * maskWidth + mx) * 4 // 4 bytes per float
-                    val confidence = if (maskIndex + 3 < maskBuffer.capacity()) {
-                        maskBuffer.getFloat(maskIndex)
-                    } else 0f
-
-                    if (confidence > 0.65f) {
-                        // High confidence subject
-                        outputPixels[index] = origColor
-                    } else if (confidence > 0.25f) {
-                        // Soft boundary antialiasing
-                        val alpha = ((confidence - 0.25f) / 0.40f * 255).toInt().coerceIn(0, 255)
-                        if (mode == BgMode.TRANSPARENT) {
-                            val r = Color.red(origColor)
-                            val g = Color.green(origColor)
-                            val b = Color.blue(origColor)
-                            outputPixels[index] = Color.argb(alpha, r, g, b)
-                        } else {
-                            val factor = alpha / 255f
-                            val r = (Color.red(origColor) * factor + Color.red(bgColor) * (1 - factor)).toInt()
-                            val g = (Color.green(origColor) * factor + Color.green(bgColor) * (1 - factor)).toInt()
-                            val b = (Color.blue(origColor) * factor + Color.blue(bgColor) * (1 - factor)).toInt()
-                            outputPixels[index] = Color.rgb(r, g, b)
-                        }
-                    } else {
-                        // Background
-                        outputPixels[index] = if (mode == BgMode.TRANSPARENT) Color.TRANSPARENT else bgColor
-                    }
+            val totalPixels = maskWidth * maskHeight
+            val floatMask = FloatArray(totalPixels)
+            for (i in 0 until totalPixels) {
+                if (maskBuffer.hasRemaining()) {
+                    floatMask[i] = maskBuffer.getFloat()
+                } else {
+                    floatMask[i] = 0f
                 }
             }
 
-            outputBitmap.setPixels(outputPixels, 0, width, 0, 0, width, height)
-
-            if (mode == BgMode.BLUR) {
-                val blurred = blurBitmap(inputBitmap, 15)
-                val combined = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(combined)
-                canvas.drawBitmap(blurred, 0f, 0f, null)
-                canvas.drawBitmap(outputBitmap, 0f, 0f, null)
-                Result.success(combined)
-            } else {
-                Result.success(outputBitmap)
-            }
+            Result.success(SegmentationResult(scaledBitmap, floatMask, maskWidth, maskHeight))
         } catch (e: Exception) {
-            Log.e(TAG, "Background removal error: ${e.message}", e)
+            Log.e(TAG, "extractSegmentationMask error: ${e.message}", e)
             Result.failure(e)
         }
     }
 
+    /**
+     * Composes the segmented foreground with the chosen background mode.
+     */
+    fun composeBackground(
+        baseBitmap: Bitmap,
+        alphaMask: FloatArray,
+        maskWidth: Int,
+        maskHeight: Int,
+        mode: BgMode
+    ): Bitmap {
+        val width = baseBitmap.width
+        val height = baseBitmap.height
+        val outputBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+
+        val inputPixels = IntArray(width * height)
+        baseBitmap.getPixels(inputPixels, 0, width, 0, 0, width, height)
+        val outputPixels = IntArray(width * height)
+
+        val bgColor = when (mode) {
+            BgMode.WHITE -> Color.WHITE
+            BgMode.DARK_STUDIO -> Color.rgb(24, 28, 40)
+            BgMode.BLUE -> Color.rgb(37, 99, 235)
+            BgMode.PURPLE -> Color.rgb(124, 58, 237)
+            else -> Color.TRANSPARENT
+        }
+
+        val scaleX = maskWidth.toFloat() / width.toFloat()
+        val scaleY = maskHeight.toFloat() / height.toFloat()
+
+        for (y in 0 until height) {
+            val my = (y * scaleY).toInt().coerceIn(0, maskHeight - 1)
+            val myOffset = my * maskWidth
+            for (x in 0 until width) {
+                val index = y * width + x
+                val origColor = inputPixels[index]
+
+                val mx = (x * scaleX).toInt().coerceIn(0, maskWidth - 1)
+                val rawConf = alphaMask[myOffset + mx]
+
+                // Bilinear feathering / smoothstep for silky edges:
+                // smoothstep(edge0, edge1, x): hermite interpolation between 0 and 1
+                val edge0 = 0.30f
+                val edge1 = 0.75f
+                val t = ((rawConf - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
+                val alphaFloat = t * t * (3f - 2f * t)
+                val alpha = (alphaFloat * 255f).toInt().coerceIn(0, 255)
+
+                if (alpha == 255) {
+                    outputPixels[index] = origColor
+                } else if (alpha == 0) {
+                    outputPixels[index] = if (mode == BgMode.TRANSPARENT) Color.TRANSPARENT else bgColor
+                } else {
+                    if (mode == BgMode.TRANSPARENT) {
+                        val r = Color.red(origColor)
+                        val g = Color.green(origColor)
+                        val b = Color.blue(origColor)
+                        outputPixels[index] = Color.argb(alpha, r, g, b)
+                    } else {
+                        val factor = alphaFloat
+                        val r = (Color.red(origColor) * factor + Color.red(bgColor) * (1f - factor)).toInt()
+                        val g = (Color.green(origColor) * factor + Color.green(bgColor) * (1f - factor)).toInt()
+                        val b = (Color.blue(origColor) * factor + Color.blue(bgColor) * (1f - factor)).toInt()
+                        outputPixels[index] = Color.rgb(r, g, b)
+                    }
+                }
+            }
+        }
+
+        outputBitmap.setPixels(outputPixels, 0, width, 0, 0, width, height)
+
+        if (mode == BgMode.BLUR) {
+            val blurred = blurBitmap(baseBitmap, 18)
+            val combined = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(combined)
+            canvas.drawBitmap(blurred, 0f, 0f, null)
+            canvas.drawBitmap(outputBitmap, 0f, 0f, null)
+            return combined
+        }
+
+        return outputBitmap
+    }
+
+    /**
+     * Standalone background removal entry point.
+     */
+    suspend fun removeBackground(
+        context: Context,
+        inputBitmap: Bitmap,
+        mode: BgMode = BgMode.TRANSPARENT
+    ): Result<Bitmap> = withContext(Dispatchers.Default) {
+        val maskRes = extractSegmentationMask(inputBitmap)
+        maskRes.map { seg ->
+            composeBackground(seg.processedBitmap, seg.alphaMask, seg.maskWidth, seg.maskHeight, mode)
+        }
+    }
+
     private fun blurBitmap(source: Bitmap, radius: Int): Bitmap {
-        val small = Bitmap.createScaledBitmap(source, (source.width / 4).coerceAtLeast(1), (source.height / 4).coerceAtLeast(1), true)
+        val smallW = (source.width / 5).coerceAtLeast(1)
+        val smallH = (source.height / 5).coerceAtLeast(1)
+        val small = Bitmap.createScaledBitmap(source, smallW, smallH, true)
         return Bitmap.createScaledBitmap(small, source.width, source.height, true)
     }
 

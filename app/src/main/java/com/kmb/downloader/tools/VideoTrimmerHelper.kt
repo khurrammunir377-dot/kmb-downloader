@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.nio.ByteBuffer
 
 enum class AudioTarget {
@@ -28,6 +29,61 @@ object VideoTrimmerHelper {
     private const val TAG = "VideoTrimmerHelper"
 
     /**
+     * Resolves an input path or content:// / file:// URI into a readable File.
+     */
+    fun resolveInputMediaFile(context: Context, inputPath: String): File? {
+        val direct = File(inputPath)
+        if (direct.exists() && direct.length() > 0L) {
+            return direct
+        }
+
+        if (inputPath.startsWith("content://") || inputPath.startsWith("file://")) {
+            val uri = try { Uri.parse(inputPath) } catch (_: Exception) { null } ?: return null
+
+            // 1. Check if direct _data path is available
+            try {
+                val proj = arrayOf(MediaStore.MediaColumns.DATA)
+                context.contentResolver.query(uri, proj, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val idx = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                        if (idx != -1) {
+                            val path = cursor.getString(idx)
+                            if (!path.isNullOrBlank()) {
+                                val f = File(path)
+                                if (f.exists() && f.length() > 0L) return f
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+
+            // 2. Otherwise copy stream to temporary cache file
+            try {
+                val mime = try { context.contentResolver.getType(uri) } catch (_: Exception) { null }
+                val ext = when {
+                    mime?.contains("audio") == true -> "m4a"
+                    mime?.contains("video") == true -> "mp4"
+                    inputPath.endsWith(".mp3", ignoreCase = true) -> "mp3"
+                    inputPath.endsWith(".m4a", ignoreCase = true) -> "m4a"
+                    else -> "mp4"
+                }
+                val tempSrc = File(context.cacheDir, "kmb_src_input_${System.currentTimeMillis()}.$ext")
+                context.contentResolver.openInputStream(uri)?.use { inStream ->
+                    FileOutputStream(tempSrc).use { outStream ->
+                        inStream.copyTo(outStream)
+                    }
+                }
+                if (tempSrc.exists() && tempSrc.length() > 0L) {
+                    return tempSrc
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "resolveInputMediaFile error copying stream: ${e.message}", e)
+            }
+        }
+        return null
+    }
+
+    /**
      * Losslessly trims video or audio using Android native hardware MediaExtractor + MediaMuxer.
      */
     suspend fun trimMedia(
@@ -37,14 +93,16 @@ object VideoTrimmerHelper {
         endTime: String,   // e.g. "02:55" or "00:02:55"
         isAudioOnly: Boolean = false
     ): Result<File> = withContext(Dispatchers.IO) {
-        val inputFile = File(inputFilePath)
-        if (!inputFile.exists()) {
+        val inputFile = resolveInputMediaFile(context, inputFilePath)
+        if (inputFile == null || !inputFile.exists()) {
             return@withContext Result.failure(Exception("Source file not found at: $inputFilePath"))
         }
+        val isTempInput = inputFile.name.startsWith("kmb_src_input_")
 
         val startMs = parseTimeToMs(startTime)
         val endMs = parseTimeToMs(endTime)
         if (endMs <= startMs && endMs > 0) {
+            if (isTempInput) try { inputFile.delete() } catch (_: Exception) {}
             return@withContext Result.failure(Exception("End time must be greater than start time"))
         }
 
@@ -136,6 +194,10 @@ object VideoTrimmerHelper {
             try { muxer?.release() } catch (_: Exception) {}
             try { extractor.release() } catch (_: Exception) {}
             Result.failure(e)
+        } finally {
+            if (isTempInput) {
+                try { inputFile.delete() } catch (_: Exception) {}
+            }
         }
     }
 
@@ -161,8 +223,24 @@ object VideoTrimmerHelper {
 
         trimResult.fold(
             onSuccess = { tempAudioFile ->
-                val title = customTitle?.takeIf { it.isNotBlank() }
-                    ?: File(inputFilePath).nameWithoutExtension
+                val fallbackTitle = try {
+                    if (inputFilePath.startsWith("content://")) {
+                        val uri = Uri.parse(inputFilePath)
+                        var queryName: String? = null
+                        context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val idx = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+                                if (idx != -1) queryName = cursor.getString(idx)
+                            }
+                        }
+                        queryName?.substringBeforeLast('.') ?: "Audio_${System.currentTimeMillis()}"
+                    } else {
+                        File(inputFilePath).nameWithoutExtension
+                    }
+                } catch (_: Exception) {
+                    "Audio_${System.currentTimeMillis()}"
+                }
+                val title = customTitle?.takeIf { it.isNotBlank() } ?: fallbackTitle
                 val savedUri = saveAudioToMediaStore(context, tempAudioFile, title, target)
                 if (savedUri != null) {
                     Result.success(savedUri)

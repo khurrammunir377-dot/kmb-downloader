@@ -180,12 +180,6 @@ fun WhatsAppStatusScreen(
                     IconButton(onClick = { viewModel.loadStatuses(context) }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = KmbSecondary)
                     }
-                    IconButton(onClick = {
-                        val initialUri = WhatsAppStatusHelper.getInitialUri(isBusiness)
-                        openDocumentTreeLauncher.launch(initialUri)
-                    }) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = "Select Folder", tint = WhatsAppGreen)
-                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = com.kmb.downloader.ui.theme.DarkBackground
@@ -483,15 +477,20 @@ fun WhatsAppStatusScreen(
 
                                 Button(
                                     onClick = {
-                                        val initialUri = WhatsAppStatusHelper.getInitialUri(isBusiness)
-                                        openDocumentTreeLauncher.launch(initialUri)
+                                        val pkg = if (isBusiness) "com.whatsapp.w4b" else "com.whatsapp"
+                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
+                                        if (launchIntent != null) {
+                                            context.startActivity(launchIntent)
+                                        } else {
+                                            android.widget.Toast.makeText(context, "WhatsApp is not installed", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.15f)),
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
-                                    Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color.White)
+                                    Icon(Icons.Default.Chat, contentDescription = null, tint = Color.White)
                                     Spacer(Modifier.width(6.dp))
-                                    Text("Select Folder", color = Color.White)
+                                    Text("Open WhatsApp", color = Color.White)
                                 }
                             }
                         }

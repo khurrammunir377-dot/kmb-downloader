@@ -118,7 +118,7 @@ class WhatsAppStatusViewModel(application: Application) : AndroidViewModel(appli
                 WhatsAppStatusHelper.saveStatusToGallery(context, item)
             }
             if (success) {
-                _message.value = "Saved to Gallery! 📁"
+                // Show only the single official Toast notification (removed duplicate bottom snackbar message)
                 withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(
                         context,
