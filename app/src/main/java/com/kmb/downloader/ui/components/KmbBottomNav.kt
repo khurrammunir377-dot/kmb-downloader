@@ -51,17 +51,26 @@ fun KmbBottomNav(
     onNavigate: (String) -> Unit
 ) {
     val items = listOf(
-        NavItem("downloader", "Downloader", Icons.Default.Download, Color(0xFF00CEC9)),
+        NavItem("downloader", "Downloader", Icons.Default.Download, Color(0xFF00E5FF)),
         NavItem("whatsapp", "WhatsApp", Icons.Default.Visibility, Color(0xFF25D366)),
-        NavItem("ai_studio", "AI Studio", Icons.Default.AutoFixHigh, Color(0xFFA855F7)),
+        NavItem("ai_studio", "AI Studio", Icons.Default.AutoFixHigh, Color(0xFF00B0FF)),
         NavItem("vip_pro", "VIP Pro", Icons.Default.WorkspacePremium, Color(0xFFFFD700))
     )
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = DarkSurface,
-        shape = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp),
-        border = BorderStroke(1.dp, DarkBorder)
+        color = Color(0xFF040D1A).copy(alpha = 0.96f),
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        border = BorderStroke(
+            1.dp,
+            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                listOf(
+                    Color(0xFF00E5FF).copy(alpha = 0.35f),
+                    Color(0xFF0091EA).copy(alpha = 0.15f),
+                    Color(0xFF00E5FF).copy(alpha = 0.35f)
+                )
+            )
+        )
     ) {
         Row(
             modifier = Modifier

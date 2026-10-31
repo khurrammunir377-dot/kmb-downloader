@@ -135,7 +135,7 @@ fun WhatsAppStatusScreen(
     Scaffold(
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -182,7 +182,7 @@ fun WhatsAppStatusScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = com.kmb.downloader.ui.theme.DarkBackground
+                    containerColor = Color.Transparent
                 )
             )
         }

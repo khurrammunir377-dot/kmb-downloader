@@ -381,12 +381,12 @@ fun HomeScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBackground
+                    containerColor = Color.Transparent
                 )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = Color.Transparent
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -706,8 +706,8 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(top = 4.dp, bottom = 4.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1C2234))
-                        .border(1.dp, Color(0xFF2E3850), RoundedCornerShape(12.dp))
+                        .background(Color(0xFF091629))
+                        .border(1.dp, Color(0xFF17355B), RoundedCornerShape(12.dp))
                         .padding(3.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {

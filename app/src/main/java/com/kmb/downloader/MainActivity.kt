@@ -58,7 +58,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             KMBDownloaderTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = androidx.compose.ui.graphics.Color.Transparent
+                ) {
                     val showSplash by viewModel.showSplash.collectAsState()
                     var currentScreen by remember { mutableStateOf("downloader") }
 
@@ -83,9 +86,10 @@ class MainActivity : ComponentActivity() {
                                         onNavigate = { currentScreen = it }
                                     )
                                 },
+                                containerColor = androidx.compose.ui.graphics.Color.Transparent,
                                 modifier = Modifier.fillMaxSize()
                             ) { innerPadding ->
-                                Box(
+                                com.kmb.downloader.ui.components.KmbScreenBackground(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(bottom = innerPadding.calculateBottomPadding())
