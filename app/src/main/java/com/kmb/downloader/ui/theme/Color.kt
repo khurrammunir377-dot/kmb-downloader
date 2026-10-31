@@ -2,25 +2,25 @@ package com.kmb.downloader.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Brand Accents (Preserving Orb Colors)
-val KmbPrimary = Color(0xFF6C5CE7)
-val KmbPrimaryLight = Color(0xFFA29BFE)
-val KmbSecondary = Color(0xFF00CEC9)
-val KmbAccent = Color(0xFFFF7675)
-val KmbGlow = Color(0xFFB388FF)
+// Brand Accents - Vibrant Cyan & Ocean Blue Theme (Matching New Design)
+val KmbPrimary = Color(0xFF00E5FF)
+val KmbPrimaryLight = Color(0xFF80F0FF)
+val KmbSecondary = Color(0xFF0091EA)
+val KmbAccent = Color(0xFF00B0FF)
+val KmbGlow = Color(0xFF00E5FF)
 val KmbSuccess = Color(0xFF10B981)
 val KmbGold = Color(0xFFFFD700)
 
-// Modern Rich Slate Palette (Soft, Elegant, Not Pitch Black)
-val DarkBackground = Color(0xFF121622)
-val DarkSurface = Color(0xFF1C2234)
-val DarkSurfaceCard = Color(0xFF242C42)
-val DarkBorder = Color(0xFF2D3752)
+// Midnight Navy Palette (Exact Match for Screenshot Background & Cards)
+val DarkBackground = Color(0xFF040D1A)
+val DarkSurface = Color(0xFF091629)
+val DarkSurfaceCard = Color(0xFF0F223D)
+val DarkBorder = Color(0xFF17355B)
 
 // Typography Palette
 val TextPrimary = Color(0xFFFFFFFF)
-val TextSecondary = Color(0xFFA0ABC0)
-val TextMuted = Color(0xFF718096)
+val TextSecondary = Color(0xFF90A4AE)
+val TextMuted = Color(0xFF607D8B)
 
 // Legacy alias compatibility
 val BackgroundDark = DarkBackground

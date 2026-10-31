@@ -2,27 +2,31 @@ package com.kmb.downloader.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,36 +39,49 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kmb.downloader.ui.theme.BackgroundDark
-import com.kmb.downloader.ui.theme.KmbPrimary
-import com.kmb.downloader.ui.theme.KmbPrimaryLight
-import com.kmb.downloader.ui.theme.KmbSecondary
+import com.kmb.downloader.R
 import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
-    val scale = remember { Animatable(0.75f) }
+    val scale = remember { Animatable(0.85f) }
     val alpha = remember { Animatable(0f) }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    // Breathing pulse for logo
+    val infiniteTransition = rememberInfiniteTransition(label = "pulseTransition")
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.04f,
+        initialValue = 0.98f,
+        targetValue = 1.02f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1400, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
     )
 
+    // Smooth circular rotation for loader
+    val loaderRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "loaderRotation"
+    )
+
     LaunchedEffect(Unit) {
-        alpha.animateTo(1f, animationSpec = tween(500))
+        alpha.animateTo(1f, animationSpec = tween(600))
         scale.animateTo(1f, animationSpec = tween(700, easing = FastOutSlowInEasing))
-        // Increased view duration as requested (~3.2 seconds total view time)
-        delay(2400)
+        // View duration so user can see and enjoy the new look
+        delay(2600)
         alpha.animateTo(0f, animationSpec = tween(400))
         onFinished()
     }
@@ -72,159 +89,192 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F0C29),
-                        Color(0xFF1B1238),
-                        BackgroundDark
-                    )
-                )
-            ),
-        contentAlignment = Alignment.Center
+            .background(Color(0xFF040D1A))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                onFinished()
+            }
     ) {
-        // Subtle ambient background aura
+        // High-Resolution Background Art with Fluid Ribbons
+        Image(
+            painter = painterResource(id = R.drawable.bg_splash_art),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Radial ambient glow behind central logo
         Box(
             modifier = Modifier
-                .size(280.dp)
-                .scale(pulseScale)
+                .align(Alignment.Center)
+                .size(340.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            KmbPrimary.copy(alpha = 0.22f),
-                            KmbSecondary.copy(alpha = 0.12f),
+                            Color(0xFF00E5FF).copy(alpha = 0.12f),
+                            Color(0xFF0091EA).copy(alpha = 0.06f),
                             Color.Transparent
                         )
                     )
                 )
         )
 
+        // Content Column matching exact layout in reference design
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
-                .scale(scale.value)
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .alpha(alpha.value)
                 .padding(horizontal = 24.dp)
         ) {
-            // Central Official 3D KMB Logo Card with dynamic glowing border
-            Box(
+            Spacer(Modifier.weight(1f))
+
+            // 3D Ribbon Logo
+            Image(
+                painter = painterResource(id = R.drawable.kmb_ribbon_logo),
+                contentDescription = "KMB Logo",
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(width = 175.dp, height = 102.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
-                    .border(
-                        width = 2.5.dp,
-                        brush = Brush.horizontalGradient(
-                            listOf(KmbSecondary, KmbPrimaryLight, KmbPrimary)
-                        ),
-                        shape = RoundedCornerShape(24.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                androidx.compose.foundation.Image(
-                    painter = androidx.compose.ui.res.painterResource(id = com.kmb.downloader.R.drawable.kmb_logo),
-                    contentDescription = "KMB Apps Logo",
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                )
-            }
+                    .size(width = 175.dp, height = 160.dp)
+                    .scale(scale.value * pulseScale)
+            )
 
-            Spacer(Modifier.height(26.dp))
+            Spacer(Modifier.height(18.dp))
 
-            // Main Brand Title
+            // "KMB" Brand Text (Bold White)
             Text(
-                text = "KMB DOWNLOADER",
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 27.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 2.8.sp
-                ),
+                text = "KMB",
+                fontSize = 38.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 3.5.sp,
                 color = Color.White
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(2.dp))
 
-            // Elegant Subtitle
+            // "DOWNLOADER" Text (Electric Cyan with wide tracking)
             Text(
-                text = "All-in-One Instant Media Grabber",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.sp,
-                    fontSize = 15.sp
-                ),
-                color = KmbSecondary
+                text = "DOWNLOADER",
+                fontSize = 17.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 7.sp,
+                color = Color(0xFF00E5FF)
             )
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(18.dp))
 
-            // Clean Feature Badges Row
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FeaturePill(text = "4K & HD Video")
-                FeaturePill(text = "Audio / MP3")
-                FeaturePill(text = "WhatsApp Status")
-            }
-
-            Spacer(Modifier.height(36.dp))
-
-            // Sleek Loading Progress Indicator
-            LinearProgressIndicator(
+            // Glowing Light Beam Divider
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .width(140.dp)
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(2.dp)),
-                color = KmbSecondary,
-                trackColor = Color.White.copy(alpha = 0.12f)
-            )
+                    .fillMaxWidth()
+                    .height(12.dp)
+            ) {
+                // Radial soft glow flare at the center
+                Box(
+                    modifier = Modifier
+                        .size(width = 100.dp, height = 10.dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFF00E5FF).copy(alpha = 0.7f),
+                                    Color(0xFF00E5FF).copy(alpha = 0.2f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                // Crisp horizontal beam tapering to transparent
+                Box(
+                    modifier = Modifier
+                        .width(220.dp)
+                        .height(2.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color(0xFF00E5FF).copy(alpha = 0.35f),
+                                    Color(0xFF00E5FF),
+                                    Color(0xFF00E5FF).copy(alpha = 0.35f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+            }
 
             Spacer(Modifier.height(14.dp))
 
+            // "Download • Save • Enjoy" Subtitle
             Text(
-                text = "v3.6.0 • Fast & Secure Engine",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    letterSpacing = 0.8.sp,
-                    fontSize = 11.sp
-                ),
-                color = Color.White.copy(alpha = 0.45f)
+                text = "Download  •  Save  •  Enjoy",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 1.2.sp,
+                color = Color(0xFFCFD8DC)
+            )
+
+            Spacer(Modifier.height(72.dp))
+
+            // Glowing Circular Ring Loader
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(46.dp)
+            ) {
+                // Ambient glow around ring
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    Color(0xFF00E5FF).copy(alpha = 0.28f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                Canvas(modifier = Modifier.size(36.dp)) {
+                    val strokeWidth = 3.6.dp.toPx()
+                    // Dark navy circular track
+                    drawCircle(
+                        color = Color(0xFF022B48),
+                        style = Stroke(width = strokeWidth)
+                    )
+                    // Rotating glowing cyan arc
+                    drawArc(
+                        brush = Brush.sweepGradient(
+                            listOf(
+                                Color(0xFF00E5FF).copy(alpha = 0.15f),
+                                Color(0xFF00E5FF)
+                            )
+                        ),
+                        startAngle = loaderRotation,
+                        sweepAngle = 135f,
+                        useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // Footer Version Text
+            Text(
+                text = "v4.0.0  •  Fast & Secure Engine",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Normal,
+                letterSpacing = 0.8.sp,
+                color = Color(0xFF78909C),
+                modifier = Modifier.padding(bottom = 20.dp)
             )
         }
-    }
-}
-
-@Composable
-private fun FeaturePill(text: String) {
-    Box(
-        modifier = Modifier
-            .background(
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .border(
-                width = 1.dp,
-                brush = Brush.horizontalGradient(
-                    listOf(
-                        KmbPrimary.copy(alpha = 0.4f),
-                        KmbSecondary.copy(alpha = 0.4f)
-                    )
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.4.sp,
-                fontSize = 11.5.sp
-            ),
-            color = Color.White.copy(alpha = 0.9f)
-        )
     }
 }

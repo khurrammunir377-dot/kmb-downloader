@@ -189,38 +189,38 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(width = 46.dp, height = 30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.White)
-                                .border(1.dp, KmbSecondary.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            androidx.compose.foundation.Image(
-                                painter = androidx.compose.ui.res.painterResource(id = com.kmb.downloader.R.drawable.kmb_logo),
-                                contentDescription = "KMB Logo",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(2.dp)
-                            )
-                        }
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.kmb.downloader.R.drawable.kmb_ribbon_logo),
+                            contentDescription = "KMB Logo",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(36.dp)
+                        )
                         Spacer(Modifier.width(10.dp))
                         Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "KMB ",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.2.sp,
+                                        fontSize = 16.sp
+                                    ),
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "DOWNLOADER",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.5.sp,
+                                        fontSize = 15.sp
+                                    ),
+                                    color = KmbPrimary
+                                )
+                            }
                             Text(
-                                text = "KMB DOWNLOADER",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.1.sp,
-                                    fontSize = 16.sp
-                                ),
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Text(
-                                text = "Instant Media Grabber",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                color = KmbSecondary
+                                text = "Download • Save • Enjoy",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, letterSpacing = 0.5.sp),
+                                color = com.kmb.downloader.ui.theme.TextSecondary
                             )
                         }
                     }
