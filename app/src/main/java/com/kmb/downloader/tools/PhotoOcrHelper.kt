@@ -4,7 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -22,37 +24,65 @@ object PhotoOcrHelper {
     private const val TAG = "PhotoOcrHelper"
 
     /**
-     * Extracts all text from a bitmap using on-device Google ML Kit Text Recognition.
+     * Extracts all text (Latin + Devanagari / Nepali / Hindi) from a bitmap using on-device Google ML Kit.
      */
     suspend fun recognizeText(
         context: Context,
         bitmap: Bitmap
     ): Result<OcrResult> = withContext(Dispatchers.Default) {
         try {
-            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             val image = InputImage.fromBitmap(bitmap, 0)
 
-            val visionText = suspendCancellableCoroutine { continuation ->
-                recognizer.process(image)
-                    .addOnSuccessListener { result ->
-                        continuation.resume(result)
+            // 1. Latin Text Recognizer (English, numbers, symbols)
+            val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            val latinResult: Text? = try {
+                suspendCancellableCoroutine { continuation ->
+                    latinRecognizer.process(image)
+                        .addOnSuccessListener { continuation.resume(it) }
+                        .addOnFailureListener { continuation.resume(null) }
+                }
+            } catch (_: Exception) { null }
+
+            // 2. Devanagari Text Recognizer (Nepali, Hindi, Marathi, Sanskrit)
+            val devanagariRecognizer = TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
+            val devanagariResult: Text? = try {
+                suspendCancellableCoroutine { continuation ->
+                    devanagariRecognizer.process(image)
+                        .addOnSuccessListener { continuation.resume(it) }
+                        .addOnFailureListener { continuation.resume(null) }
+                }
+            } catch (_: Exception) { null }
+
+            val combinedLines = linkedSetOf<String>()
+            var blockCount = 0
+
+            devanagariResult?.let { res ->
+                blockCount += res.textBlocks.size
+                for (block in res.textBlocks) {
+                    for (line in block.lines) {
+                        val trimmed = line.text.trim()
+                        if (trimmed.isNotBlank()) combinedLines.add(trimmed)
                     }
-                    .addOnFailureListener { e ->
-                        continuation.resumeWithException(e)
-                    }
+                }
             }
 
-            val text = visionText.text.trim()
-            var lines = 0
-            for (b in visionText.textBlocks) {
-                lines += b.lines.size
+            latinResult?.let { res ->
+                blockCount += res.textBlocks.size
+                for (block in res.textBlocks) {
+                    for (line in block.lines) {
+                        val trimmed = line.text.trim()
+                        if (trimmed.isNotBlank()) combinedLines.add(trimmed)
+                    }
+                }
             }
+
+            val fullText = combinedLines.joinToString("\n")
 
             Result.success(
                 OcrResult(
-                    fullText = text,
-                    blockCount = visionText.textBlocks.size,
-                    lineCount = lines
+                    fullText = fullText,
+                    blockCount = blockCount,
+                    lineCount = combinedLines.size
                 )
             )
         } catch (e: Exception) {

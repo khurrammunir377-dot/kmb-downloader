@@ -12,6 +12,8 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
 import android.widget.Toast
+import android.media.MediaPlayer
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -82,6 +84,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import com.kmb.downloader.data.ReferralManager
+import com.kmb.downloader.ui.components.ReferralDialog
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -155,7 +160,14 @@ fun AiStudioScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val proState by ReferralManager.proState.collectAsState()
+    var showReferralDialog by remember { mutableStateOf(false) }
     var activeTool by remember { mutableStateOf<StudioTool?>(null) }
+
+    // Intercept hardware back button when inside a sub-tool so user returns to AI Studio menu
+    BackHandler(enabled = activeTool != null) {
+        activeTool = null
+    }
 
     val studioItems = listOf(
         StudioItem(
@@ -332,7 +344,13 @@ fun AiStudioScreen(
                             items(studioItems) { item ->
                                 StudioFeatureCard(
                                     item = item,
-                                    onClick = { activeTool = item.tool }
+                                    onClick = {
+                                        if (!proState.isPro) {
+                                            showReferralDialog = true
+                                        } else {
+                                            activeTool = item.tool
+                                        }
+                                    }
                                 )
                             }
 
@@ -352,6 +370,10 @@ fun AiStudioScreen(
                 }
             }
         }
+    }
+
+    if (showReferralDialog) {
+        ReferralDialog(onDismiss = { showReferralDialog = false }, onShowMessage = { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } })
     }
 }
 
@@ -430,6 +452,58 @@ fun StudioFeatureCard(
 }
 
 /**
+ * Centered Circular Media Picker Button
+ */
+@Composable
+fun CenteredCircularMediaPicker(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    gradient: List<Color>,
+    hasMedia: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(92.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(gradient))
+                .border(2.5.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = Color.White,
+                modifier = Modifier.size(42.dp)
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = if (hasMedia) "Change Media" else title,
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp,
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = subtitle,
+            fontSize = 11.sp,
+            color = Color(0xFF9CA3AF),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
  * Tool 1: Photo Background Remover (High quality mask segmentation & instant mode preview)
  */
 @Composable
@@ -463,43 +537,14 @@ fun PhotoBgRemoverView(snackbarHostState: SnackbarHostState) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { photoPickerLauncher.launch("image/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFFEC4899)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (originalBitmap == null) "Select Image from Gallery" else "Change Image",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "AI isolates subject & creates HD cutout",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.PhotoCamera,
+                title = "Select Image from Gallery",
+                subtitle = "AI isolates subject & creates HD cutout",
+                gradient = listOf(Color(0xFF8B5CF6), Color(0xFFEC4899)),
+                hasMedia = originalBitmap != null,
+                onClick = { photoPickerLauncher.launch("image/*") }
+            )
         }
 
         originalBitmap?.let { orig ->
@@ -636,7 +681,6 @@ fun PhotoBgRemoverView(snackbarHostState: SnackbarHostState) {
                                 saveRes.fold(
                                     onSuccess = {
                                         Toast.makeText(context, "✓ Saved to Pictures/KMB AI Studio!", Toast.LENGTH_SHORT).show()
-                                        snackbarHostState.showSnackbar("✓ Saved to Pictures/KMB AI Studio!")
                                     },
                                     onFailure = { snackbarHostState.showSnackbar("Save failed: ${it.message}") }
                                 )
@@ -702,43 +746,14 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { photoPicker.launch("image/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFF3B82F6), Color(0xFF06B6D4)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.TextFields, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (photoBitmap == null) "Select Photo with Text" else "Change Image",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Auto-scans and extracts text for instant 1-tap copy",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.TextFields,
+                title = "Select Photo with Text",
+                subtitle = "Auto-scans and extracts text for instant 1-tap copy",
+                gradient = listOf(Color(0xFF3B82F6), Color(0xFF06B6D4)),
+                hasMedia = photoBitmap != null,
+                onClick = { photoPicker.launch("image/*") }
+            )
         }
 
         photoBitmap?.let { bmp ->
@@ -863,7 +878,7 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
     val scope = rememberCoroutineScope()
 
     var videoPath by remember { mutableStateOf<String?>(null) }
-    var selectedRegion by remember { mutableStateOf(VideoTextRegion.BOTTOM_SUBTITLES) }
+    var selectedRegion by remember { mutableStateOf(VideoTextRegion.ALL_SCREEN_TEXT) }
     var isProcessing by remember { mutableStateOf(false) }
     var progressStatus by remember { mutableStateOf("") }
     var processedVideoFile by remember { mutableStateOf<File?>(null) }
@@ -884,43 +899,14 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { videoPicker.launch("video/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFFF97316), Color(0xFFEF4444)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Subtitles, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (videoPath == null) "Select Video to Erase Text" else "Video Selected",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Blurs/delogos subtitles or channel handles",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.Subtitles,
+                title = "Select Video to Erase Text",
+                subtitle = "Blurs/delogos subtitles or channel handles",
+                gradient = listOf(Color(0xFFF97316), Color(0xFFEF4444)),
+                hasMedia = videoPath != null,
+                onClick = { videoPicker.launch("video/*") }
+            )
         }
 
         videoPath?.let { path ->
@@ -928,8 +914,9 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Select Region to Erase:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     val regions = listOf(
+                        Pair(VideoTextRegion.ALL_SCREEN_TEXT, "🌟 All Screen Text (Top, Center & Subtitles)"),
                         Pair(VideoTextRegion.BOTTOM_SUBTITLES, "Bottom Subtitles / Captions"),
-                        Pair(VideoTextRegion.TOP_CHANNEL_TAG, "Top Channel Tag / Handle"),
+                        Pair(VideoTextRegion.TOP_CAPTIONS, "Top Channel Tag / Handle"),
                         Pair(VideoTextRegion.BOTTOM_RIGHT, "Bottom Right Watermark"),
                         Pair(VideoTextRegion.BOTTOM_LEFT, "Bottom Left Watermark"),
                         Pair(VideoTextRegion.TOP_RIGHT, "Top Right Watermark")
@@ -979,7 +966,6 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
                                 onSuccess = { file ->
                                     processedVideoFile = file
                                     Toast.makeText(context, "✓ Clean video saved to Movies/KMB AI Studio!", Toast.LENGTH_SHORT).show()
-                                    snackbarHostState.showSnackbar("✓ Clean video saved to Gallery!")
                                 },
                                 onFailure = { err ->
                                     snackbarHostState.showSnackbar("Eraser Error: ${err.message}")
@@ -1064,43 +1050,14 @@ fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { mediaPicker.launch("video/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFF10B981), Color(0xFF3B82F6)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Translate, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (selectedMediaUri == null) "Select Video or Audio" else "Media Ready to Transcribe",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Transcribes speech in English, Urdu, Hindi, Arabic & more",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.Translate,
+                title = "Select Video or Audio",
+                subtitle = "Transcribes speech in English, Urdu, Hindi, Arabic & more",
+                gradient = listOf(Color(0xFF10B981), Color(0xFF3B82F6)),
+                hasMedia = selectedMediaUri != null,
+                onClick = { mediaPicker.launch("video/*") }
+            )
         }
 
         item {
@@ -1147,6 +1104,23 @@ fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
                                 return@launch
                             }
 
+                            // Start audio playback so speech recognizer hears audio stream from video
+                            var player: MediaPlayer? = null
+                            try {
+                                player = MediaPlayer().apply {
+                                    setDataSource(context, uri)
+                                    prepare()
+                                    start()
+                                }
+                            } catch (_: Exception) {}
+
+                            val cleanup = {
+                                try {
+                                    if (player?.isPlaying == true) player.stop()
+                                    player?.release()
+                                } catch (_: Exception) {}
+                            }
+
                             // Launch recognizer intent
                             val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
                             val intent = SpeechTranscriberHelper.createRecognizerIntent(selectedLang.code)
@@ -1155,13 +1129,18 @@ fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
                                 override fun onBeginningOfSpeech() {}
                                 override fun onRmsChanged(rmsdB: Float) {}
                                 override fun onBufferReceived(buffer: ByteArray?) {}
-                                override fun onEndOfSpeech() { isTranscribing = false }
+                                override fun onEndOfSpeech() {
+                                    isTranscribing = false
+                                    cleanup()
+                                }
                                 override fun onError(error: Int) {
                                     isTranscribing = false
+                                    cleanup()
                                     scope.launch { snackbarHostState.showSnackbar("Speech recognizer completed / listening paused.") }
                                 }
                                 override fun onResults(results: Bundle?) {
                                     isTranscribing = false
+                                    cleanup()
                                     val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                                     val text = matches?.firstOrNull() ?: ""
                                     if (text.isNotBlank()) transcriptText = text
@@ -1500,7 +1479,6 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
                                     res.fold(
                                         onSuccess = {
                                             Toast.makeText(context, "✓ Enhanced photo saved to Pictures/KMB AI Studio!", Toast.LENGTH_SHORT).show()
-                                            snackbarHostState.showSnackbar("✓ Enhanced photo saved to Gallery!")
                                         },
                                         onFailure = { snackbarHostState.showSnackbar("Save failed: ${it.message}") }
                                     )
@@ -1520,43 +1498,14 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
         } else {
             // Video Enhancer Tab
             item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { videoPicker.launch("video/*") },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                    border = CardDefaults.outlinedCardBorder()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(Color(0xFFEC4899), Color(0xFFF59E0B)))),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.HighQuality, contentDescription = null, tint = Color.White)
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (videoPath == null) "Select Video to Enhance" else "Video Ready",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color.White
-                            )
-                            Text(
-                                text = "Applies FFmpeg unsharp mask & HDR contrast enhancement",
-                                fontSize = 11.sp,
-                                color = Color(0xFF9CA3AF)
-                            )
-                        }
-                    }
-                }
+                CenteredCircularMediaPicker(
+                    icon = Icons.Default.HighQuality,
+                    title = "Select Video to Enhance",
+                    subtitle = "Applies FFmpeg unsharp mask & HDR contrast enhancement",
+                    gradient = listOf(Color(0xFFEC4899), Color(0xFFF59E0B)),
+                    hasMedia = videoPath != null,
+                    onClick = { videoPicker.launch("video/*") }
+                )
             }
 
             videoPath?.let { path ->
@@ -1576,7 +1525,6 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
                                     onSuccess = { file ->
                                         enhancedVideoFile = file
                                         Toast.makeText(context, "✓ Enhanced video saved to Movies/KMB AI Studio!", Toast.LENGTH_SHORT).show()
-                                        snackbarHostState.showSnackbar("✓ Enhanced video saved to Gallery!")
                                     },
                                     onFailure = { err ->
                                         snackbarHostState.showSnackbar("Enhance Error: ${err.message}")
@@ -1666,43 +1614,14 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { photoPickerLauncher.launch("image/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFF3B82F6), Color(0xFF10B981)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.CleaningServices, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (originalBitmap == null) "Select Image with Text/Logos" else "Change Image",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Auto-detect text & inpaint background seamlessly",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.CleaningServices,
+                title = "Select Image with Text/Logos",
+                subtitle = "Auto-detect text & inpaint background seamlessly",
+                gradient = listOf(Color(0xFF3B82F6), Color(0xFF10B981)),
+                hasMedia = originalBitmap != null,
+                onClick = { photoPickerLauncher.launch("image/*") }
+            )
         }
 
         originalBitmap?.let { orig ->
@@ -1756,6 +1675,34 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
             item {
                 Button(
                     onClick = {
+                        isErasing = true
+                        scope.launch {
+                            val zones = ImageInpaintHelper.getFullScreenTextZones(orig.width, orig.height)
+                            val eraseRes = ImageInpaintHelper.eraseAreas(orig, zones)
+                            isErasing = false
+                            eraseRes.fold(
+                                onSuccess = { cleanBmp ->
+                                    resultBitmap = cleanBmp
+                                    Toast.makeText(context, "✓ All screen text (top, center & subtitles) erased!", Toast.LENGTH_SHORT).show()
+                                },
+                                onFailure = { snackbarHostState.showSnackbar("Erase failed: ${it.message}") }
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                    enabled = !isDetecting && !isErasing
+                ) {
+                    Icon(Icons.Default.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isErasing) "Erasing All Screen Text..." else "🌟 Erase All Screen Text (Top, Center & Subtitles)")
+                }
+            }
+
+            item {
+                Button(
+                    onClick = {
                         isDetecting = true
                         scope.launch {
                             val detectRes = ImageInpaintHelper.detectText(orig)
@@ -1772,7 +1719,7 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                                         eraseRes.fold(
                                             onSuccess = { cleanBmp ->
                                                 resultBitmap = cleanBmp
-                                                snackbarHostState.showSnackbar("✓ Erased ${boxes.size} text areas seamlessly!")
+                                                Toast.makeText(context, "✓ Erased ${boxes.size} text areas seamlessly!", Toast.LENGTH_SHORT).show()
                                             },
                                             onFailure = { snackbarHostState.showSnackbar("Erase failed: ${it.message}") }
                                         )
@@ -1793,7 +1740,7 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                         when {
                             isDetecting -> "Detecting Text & Watermarks..."
                             isErasing -> "Inpainting Clean Pixels..."
-                            else -> "🧹 Auto-Detect & Erase All Text"
+                            else -> "🧹 Smart ML Kit Text Eraser"
                         }
                     )
                 }
@@ -1808,7 +1755,6 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                                 saveRes.fold(
                                     onSuccess = {
                                         Toast.makeText(context, "✓ Saved to Pictures/KMB AI Studio!", Toast.LENGTH_SHORT).show()
-                                        snackbarHostState.showSnackbar("✓ Saved to Pictures/KMB AI Studio!")
                                     },
                                     onFailure = { snackbarHostState.showSnackbar("Save failed: ${it.message}") }
                                 )
@@ -1963,7 +1909,6 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
                                 onSuccess = { file ->
                                     cleanedVideoFile = file
                                     Toast.makeText(context, "✓ Clean video saved to Movies/KMB AI Studio!", Toast.LENGTH_SHORT).show()
-                                    snackbarHostState.showSnackbar("✓ Clean video saved to Movies/KMB AI Studio!")
                                 },
                                 onFailure = { err ->
                                     snackbarHostState.showSnackbar("Delogo error: ${err.message}")
@@ -2046,43 +1991,14 @@ fun AudioStudioToolView(snackbarHostState: SnackbarHostState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { videoPicker.launch("video/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFF7C3AED), Color(0xFF6366F1)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (selectedVideoUri == null) "Select Video to Extract Audio" else "Video Selected",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Extracts high-fidelity audio directly as ringtone/alarm",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.MusicNote,
+                title = "Select Video to Extract Audio",
+                subtitle = "Extracts high-fidelity audio directly as ringtone/alarm",
+                gradient = listOf(Color(0xFF7C3AED), Color(0xFF6366F1)),
+                hasMedia = selectedVideoUri != null,
+                onClick = { videoPicker.launch("video/*") }
+            )
         }
 
         selectedVideoUri?.let { uri ->
@@ -2186,7 +2102,6 @@ fun AudioStudioToolView(snackbarHostState: SnackbarHostState) {
                             res.fold(
                                 onSuccess = {
                                     Toast.makeText(context, "✓ Extracted audio saved directly to sound settings!", Toast.LENGTH_SHORT).show()
-                                    snackbarHostState.showSnackbar("✓ Extracted audio saved successfully!")
                                 },
                                 onFailure = { snackbarHostState.showSnackbar("Audio extraction failed: ${it.message}") }
                             )
@@ -2320,7 +2235,6 @@ fun UniversalTrimmerView(snackbarHostState: SnackbarHostState) {
                             res.fold(
                                 onSuccess = {
                                     Toast.makeText(context, "✓ Trimmed clip saved to Movies/KMB Downloader!", Toast.LENGTH_SHORT).show()
-                                    snackbarHostState.showSnackbar("✓ Trimmed clip saved to phone gallery!")
                                 },
                                 onFailure = { snackbarHostState.showSnackbar("Trim failed: ${it.message}") }
                             )
@@ -2364,43 +2278,14 @@ fun ShortsReframeView(snackbarHostState: SnackbarHostState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { videoPicker.launch("video/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFFF43F5E), Color(0xFFFB923C)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.CropPortrait, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (selectedVideoUri == null) "Select 16:9 Video" else "Video Ready to Reframe",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Reframes widescreen video into 9:16 vertical reels format",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.CropPortrait,
+                title = "Select 16:9 Video",
+                subtitle = "Reframes widescreen video into 9:16 vertical reels format",
+                gradient = listOf(Color(0xFFF43F5E), Color(0xFFFB923C)),
+                hasMedia = selectedVideoUri != null,
+                onClick = { videoPicker.launch("video/*") }
+            )
         }
 
         selectedVideoUri?.let { uri ->
@@ -2428,7 +2313,6 @@ fun ShortsReframeView(snackbarHostState: SnackbarHostState) {
                             res.fold(
                                 onSuccess = {
                                     Toast.makeText(context, "✓ Reframe clip saved to Movies/KMB Downloader!", Toast.LENGTH_SHORT).show()
-                                    snackbarHostState.showSnackbar("✓ Shorts clip ready in gallery!")
                                 },
                                 onFailure = { snackbarHostState.showSnackbar("Reframe failed: ${it.message}") }
                             )

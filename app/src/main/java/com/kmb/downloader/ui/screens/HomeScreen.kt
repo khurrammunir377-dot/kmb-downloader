@@ -86,6 +86,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -150,6 +151,7 @@ fun HomeScreen(
     var itemToTrim by remember { mutableStateOf<DownloadItem?>(null) }
     var audioStudioItem by remember { mutableStateOf<DownloadItem?>(null) }
     var detailsItemToShow by remember { mutableStateOf<MediaDetailsInfo?>(null) }
+    var selectedMediaTab by remember { mutableIntStateOf(0) }
     val proState by ReferralManager.proState.collectAsState()
 
     val trimEnabled by viewModel.trimEnabled.collectAsState()
@@ -696,139 +698,235 @@ fun HomeScreen(
 
             // ===== SAVED LINKS =====
             val pendingCount = savedLinks.count { !it.isDownloaded }
+
+            // ===== 2-TAB SEGMENTED SELECTOR: SAVED LINKS vs DOWNLOAD HISTORY =====
             item {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF1C2234))
+                        .border(1.dp, Color(0xFF2E3850), RoundedCornerShape(12.dp))
+                        .padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(Icons.Rounded.Bookmark, contentDescription = null, tint = KmbPrimary, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = if (savedLinks.isNotEmpty()) "Saved Links (${savedLinks.size})" else "Saved Links",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(Modifier.weight(1f))
-                    if (pendingCount > 1) {
-                        TextButton(onClick = { viewModel.downloadAllSaved() }) {
-                            Text("Download All ($pendingCount)", color = KmbSecondary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(9.dp))
+                            .then(
+                                if (selectedMediaTab == 0) Modifier.background(Brush.horizontalGradient(listOf(KmbPrimary, KmbPrimaryLight)))
+                                else Modifier.background(Color.Transparent)
+                            )
+                            .clickable { selectedMediaTab = 0 }
+                            .padding(vertical = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(
+                                Icons.Rounded.Bookmark,
+                                contentDescription = null,
+                                tint = if (selectedMediaTab == 0) Color.White else Color(0xFF9CA3AF),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                "Saved Links (${savedLinks.size})",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selectedMediaTab == 0) Color.White else Color(0xFF9CA3AF)
+                            )
                         }
                     }
-                    IconButton(onClick = { viewModel.checkClipboardAndSave() }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Scan clipboard", tint = KmbSecondary, modifier = Modifier.size(18.dp))
-                    }
-                    if (savedLinks.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.clearSavedLinks() }) {
-                            Text("Clear", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(9.dp))
+                            .then(
+                                if (selectedMediaTab == 1) Modifier.background(Brush.horizontalGradient(listOf(KmbPrimary, KmbPrimaryLight)))
+                                else Modifier.background(Color.Transparent)
+                            )
+                            .clickable { selectedMediaTab = 1 }
+                            .padding(vertical = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                tint = if (selectedMediaTab == 1) Color.White else Color(0xFF9CA3AF),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                "Download History (${downloads.size})",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selectedMediaTab == 1) Color.White else Color(0xFF9CA3AF)
+                            )
                         }
                     }
                 }
             }
 
-            if (savedLinks.isEmpty()) {
+            // ===== TAB 0: SAVED LINKS =====
+            if (selectedMediaTab == 0) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
-                        shape = RoundedCornerShape(12.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                     ) {
                         Text(
-                            text = "No saved links yet.\n\nCopy any YouTube, TikTok, Instagram, Facebook, or X link anywhere on your phone. It will automatically appear here so you can download anytime.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(14.dp)
+                            text = if (savedLinks.isNotEmpty()) "${savedLinks.size} Links Stored" else "Saved Links",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.weight(1f))
+                        if (pendingCount > 1) {
+                            TextButton(onClick = { viewModel.downloadAllSaved() }) {
+                                Text("Download All ($pendingCount)", color = KmbSecondary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                        IconButton(onClick = { viewModel.checkClipboardAndSave() }, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Scan clipboard", tint = KmbSecondary, modifier = Modifier.size(17.dp))
+                        }
+                        if (savedLinks.isNotEmpty()) {
+                            TextButton(onClick = { viewModel.clearSavedLinks() }) {
+                                Text("Clear", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+
+                if (savedLinks.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "No saved links yet.\n\nCopy any YouTube, TikTok, Instagram, Facebook, or X link anywhere on your phone. It will automatically appear here so you can download anytime.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(14.dp)
+                            )
+                        }
+                    }
+                } else {
+                    items(
+                        items = savedLinks,
+                        key = { link -> "saved_${link.id}_${link.url.hashCode()}" }
+                    ) { link ->
+                        val formattedDate = viewModel.formatDate(link.detectedAt)
+                        CompactSavedLinkCard(
+                            link = link,
+                            dateText = formattedDate,
+                            onDownload = { viewModel.startDownload(link.url) },
+                            onDelete = { viewModel.deleteSavedLink(link.id) },
+                            onClickIcon = {
+                                detailsItemToShow = MediaDetailsInfo(
+                                    title = link.title ?: link.url,
+                                    platform = link.platform,
+                                    url = link.url,
+                                    dateText = formattedDate,
+                                    quality = "Original Web Stream",
+                                    status = if (link.isDownloaded) "Downloaded" else "Saved for Later",
+                                    description = link.note ?: (if (!link.title.isNullOrBlank()) "Web media link detected and preserved for offline download." else "Web Media Stream"),
+                                    thumbnail = link.thumbnail,
+                                    onDownload = { viewModel.startDownload(link.url) }
+                                )
+                            }
                         )
                     }
                 }
-            } else {
-                items(
-                    items = savedLinks,
-                    key = { link -> "saved_${link.id}_${link.url.hashCode()}" }
-                ) { link ->
-                    val formattedDate = viewModel.formatDate(link.detectedAt)
-                    CompactSavedLinkCard(
-                        link = link,
-                        dateText = formattedDate,
-                        onDownload = { viewModel.startDownload(link.url) },
-                        onDelete = { viewModel.deleteSavedLink(link.id) },
-                        onClickIcon = {
-                            detailsItemToShow = MediaDetailsInfo(
-                                title = link.title ?: link.url,
-                                platform = link.platform,
-                                url = link.url,
-                                dateText = formattedDate,
-                                quality = "Original Web Stream",
-                                status = if (link.isDownloaded) "Downloaded" else "Saved for Later",
-                                thumbnail = link.thumbnail,
-                                onDownload = { viewModel.startDownload(link.url) }
-                            )
-                        }
-                    )
-                }
             }
 
-            // ===== DOWNLOAD HISTORY =====
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
-                ) {
-                    Icon(Icons.Default.History, contentDescription = null, tint = KmbPrimary, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = if (downloads.isNotEmpty()) "Download History (${downloads.size})" else "Download History",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(Modifier.weight(1f))
-                    if (downloads.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.clearHistory() }) {
-                            Text("Clear", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+            // ===== TAB 1: DOWNLOAD HISTORY =====
+            if (selectedMediaTab == 1) {
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = if (downloads.isNotEmpty()) "${downloads.size} Downloads Complete" else "Download History",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.weight(1f))
+                        if (downloads.isNotEmpty()) {
+                            TextButton(onClick = { viewModel.clearHistory() }) {
+                                Text("Clear History", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            }
                         }
                     }
                 }
-            }
 
-            if (downloads.isEmpty()) {
-                item {
-                    Text(
-                        text = "No downloads yet",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-            } else {
-                items(
-                    items = downloads,
-                    key = { item -> "download_${item.id}_${item.url.hashCode()}" }
-                ) { item ->
-                    val liveP = liveProgressMap[item.id]
-                    val formattedDate = viewModel.formatDate(item.createdAt)
-                    CompactDownloadHistoryCard(
-                        item = item,
-                        liveProgress = liveP,
-                        onPlay = { viewModel.openFile(context, item) },
-                        onShare = { viewModel.shareFile(context, item) },
-                        onTrim = { itemToTrim = item },
-                        onAudioStudio = { audioStudioItem = item },
-                        onCancel = { viewModel.cancelDownload(item.id) },
-                        onDelete = { viewModel.deleteDownload(item) },
-                        onClickIcon = {
-                            detailsItemToShow = MediaDetailsInfo(
-                                title = item.title.ifBlank { item.url },
-                                platform = item.platform,
-                                url = item.url,
-                                dateText = formattedDate,
-                                quality = item.quality,
-                                fileSize = item.fileSize,
-                                status = item.status,
-                                filePath = item.filePath,
-                                thumbnail = item.thumbnail,
-                                onPlay = if (item.status == "Completed") { { viewModel.openFile(context, item) } } else null,
-                                onShare = if (item.status == "Completed") { { viewModel.shareFile(context, item) } } else null,
-                                onTrim = if (item.status == "Completed") { { itemToTrim = item } } else null
-                            )
-                        }
-                    )
+                if (downloads.isEmpty()) {
+                    item {
+                        Text(
+                            text = "No downloads yet",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                    }
+                } else {
+                    items(
+                        items = downloads,
+                        key = { item -> "download_${item.id}_${item.url.hashCode()}" }
+                    ) { item ->
+                        val liveP = liveProgressMap[item.id]
+                        val formattedDate = viewModel.formatDate(item.createdAt)
+                        CompactDownloadHistoryCard(
+                            item = item,
+                            liveProgress = liveP,
+                            onPlay = { viewModel.openFile(context, item) },
+                            onShare = { viewModel.shareFile(context, item) },
+                            onTrim = {
+                                if (!proState.isPro) {
+                                    showReferralDialog = true
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("👑 Video Trimming is a VIP PRO feature. Refer friends to unlock PRO free!")
+                                    }
+                                } else {
+                                    itemToTrim = item
+                                }
+                            },
+                            onAudioStudio = { audioStudioItem = item },
+                            onCancel = { viewModel.cancelDownload(item.id) },
+                            onDelete = { viewModel.deleteDownload(item) },
+                            onClickIcon = {
+                                detailsItemToShow = MediaDetailsInfo(
+                                    title = item.title.ifBlank { item.url },
+                                    platform = item.platform,
+                                    url = item.url,
+                                    dateText = formattedDate,
+                                    quality = item.quality,
+                                    fileSize = item.fileSize,
+                                    status = item.status,
+                                    filePath = item.filePath,
+                                    description = "Downloaded from ${item.platform} in ${item.quality} quality. Status: ${item.status}.",
+                                    thumbnail = item.thumbnail,
+                                    onPlay = if (item.status == "Completed") { { viewModel.openFile(context, item) } } else null,
+                                    onShare = if (item.status == "Completed") { { viewModel.shareFile(context, item) } } else null,
+                                    onTrim = if (item.status == "Completed") {
+                                        {
+                                            if (!proState.isPro) {
+                                                showReferralDialog = true
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar("👑 Video Trimmer is a VIP PRO feature. Refer friends to unlock PRO free!")
+                                                }
+                                            } else {
+                                                itemToTrim = item
+                                            }
+                                        }
+                                    } else null
+                                )
+                            }
+                        )
+                    }
                 }
             }
 
@@ -1010,6 +1108,7 @@ data class MediaDetailsInfo(
     val fileSize: String? = null,
     val status: String? = null,
     val filePath: String? = null,
+    val description: String? = null,
     val thumbnail: String? = null,
     val onDownload: (() -> Unit)? = null,
     val onPlay: (() -> Unit)? = null,
@@ -1452,6 +1551,24 @@ fun MediaDetailsDialog(
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                }
+
+                // Description (if available)
+                if (!info.description.isNullOrBlank()) {
+                    Column {
+                        Text(
+                            text = "DESCRIPTION",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = info.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 // Date & Time + Format

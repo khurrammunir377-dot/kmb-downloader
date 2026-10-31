@@ -120,66 +120,38 @@ object MediaEnhancerHelper {
         onProgress: (String) -> Unit = {}
     ): Result<File> = withContext(Dispatchers.IO) {
         val inputFile = VideoTrimmerHelper.resolveInputMediaFile(context, inputFilePath)
-        if (inputFile == null || !inputFile.exists()) {
-            return@withContext Result.failure(Exception("Input video file not found at: $inputFilePath"))
-        }
+            ?: return@withContext Result.failure(Exception("Input video file not found at: $inputFilePath"))
         val isTemp = inputFile.name.startsWith("kmb_src_input_")
-
-        val ffmpegBin = VideoWatermarkHelper.findFFmpegBinary(context)
-        if (ffmpegBin == null || !ffmpegBin.exists()) {
-            if (isTemp) try { inputFile.delete() } catch (_: Exception) {}
-            return@withContext Result.failure(Exception("FFmpeg engine is not available on this device."))
-        }
 
         val tempOutput = File(context.cacheDir, "kmb_enhanced_${System.currentTimeMillis()}.mp4")
         val enhanceFilter = "unsharp=5:5:1.1:5:5:0.6,eq=contrast=1.12:saturation=1.18:brightness=0.01"
 
-        try {
-            onProgress("Enhancing video clarity & colors...")
-            val cmd = arrayOf(
-                ffmpegBin.absolutePath,
-                "-y",
-                "-i", inputFile.absolutePath,
-                "-vf", enhanceFilter,
-                "-c:a", "copy",
-                "-preset", "ultrafast",
-                tempOutput.absolutePath
-            )
+        onProgress("Enhancing video clarity & colors...")
+        val args = listOf(
+            "-y",
+            "-i", inputFile.absolutePath,
+            "-vf", enhanceFilter,
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "copy",
+            tempOutput.absolutePath
+        )
 
-            val pb = ProcessBuilder(*cmd).redirectErrorStream(true)
-            val env = pb.environment()
-            val ldPath = buildString {
-                append(context.applicationInfo.nativeLibraryDir)
-                val packagesUsrLib = File(context.noBackupFilesDir, "youtubedl-android/packages/ffmpeg/usr/lib")
-                if (packagesUsrLib.exists()) {
-                    append(":")
-                    append(packagesUsrLib.absolutePath)
+        val execRes = VideoWatermarkHelper.runFFmpegCommand(context, args, onProgress)
+        if (isTemp) try { inputFile.delete() } catch (_: Exception) {}
+
+        execRes.fold(
+            onSuccess = {
+                if (tempOutput.exists() && tempOutput.length() > 0) {
+                    saveEnhancedVideoToGallery(context, tempOutput)
+                    Result.success(tempOutput)
+                } else {
+                    Result.failure(Exception("Video enhancement produced empty output."))
                 }
-            }
-            env["LD_LIBRARY_PATH"] = ldPath
-
-            val process = pb.start()
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                if (line?.contains("frame=") == true) {
-                    onProgress("Enhancing video frames...")
-                }
-            }
-            process.waitFor()
-
-            if (tempOutput.exists() && tempOutput.length() > 0) {
-                saveEnhancedVideoToGallery(context, tempOutput)
-                Result.success(tempOutput)
-            } else {
-                Result.failure(Exception("Video enhancement produced no output."))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Video enhancement error: ${e.message}", e)
-            Result.failure(e)
-        } finally {
-            if (isTemp) try { inputFile.delete() } catch (_: Exception) {}
-        }
+            },
+            onFailure = { Result.failure(it) }
+        )
     }
 
     suspend fun saveEnhancedPhotoToGallery(context: Context, bitmap: Bitmap): Result<Uri> = withContext(Dispatchers.IO) {
