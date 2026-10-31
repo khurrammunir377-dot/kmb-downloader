@@ -214,10 +214,16 @@ class DownloadService : Service() {
                 val finalResolvedTitle = finalTitle
                 val finalResolvedSize = sizeString
 
+                val cleanTitle = if (finalResolvedTitle != null) {
+                    MetadataFetcherHelper.cleanFilenameToTitle(finalResolvedTitle)
+                } else null
+
                 // Single final DB update upon completion
                 updateDbItem(itemId) { prev ->
+                    val chosenTitle = cleanTitle?.takeIf { it.isNotBlank() } ?: prev.title
                     prev.copy(
-                        title = if (finalResolvedTitle != null && (prev.title == "Downloading…" || prev.title == "Unknown")) finalResolvedTitle else prev.title,
+                        title = chosenTitle,
+                        description = prev.description ?: chosenTitle,
                         status = "Completed",
                         progress = 100f,
                         filePath = finalResolvedPath ?: prev.filePath,

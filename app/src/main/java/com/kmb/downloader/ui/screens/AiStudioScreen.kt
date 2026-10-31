@@ -12,6 +12,12 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
 import android.widget.Toast
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
+import androidx.core.content.ContextCompat
+import com.kmb.downloader.tools.TranslationLanguage
 import android.media.MediaPlayer
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -132,11 +138,12 @@ import java.io.FileOutputStream
 enum class StudioTool {
     BG_REMOVER,
     PHOTO_OCR,
+    VIDEO_TO_TEXT,
+    VIDEO_CLIPPER,
+    VIDEO_DELOGO,
     VIDEO_TEXT_REMOVER,
-    SPEECH_TRANSCRIBER,
     MEDIA_ENHANCER,
     TEXT_ERASER,
-    VIDEO_DELOGO,
     AUDIO_STUDIO,
     MEDIA_TRIMMER,
     SHORTS_REFRAME
@@ -174,33 +181,57 @@ fun AiStudioScreen(
             tool = StudioTool.BG_REMOVER,
             title = "Photo BG Remover",
             tag = "On-Device AI",
-            desc = "Instant subject cutout with transparent PNG & 5 studio backgrounds",
+            desc = "HD subject cutout with transparent PNG & natural portrait blur",
             icon = Icons.Default.AutoFixHigh,
             gradient = listOf(Color(0xFF8B5CF6), Color(0xFFEC4899))
         ),
         StudioItem(
             tool = StudioTool.PHOTO_OCR,
             title = "Copy Text from Photo",
-            tag = "Smart OCR",
-            desc = "Extract all text from any picture, document or note with 1-tap copy",
+            tag = "All Languages",
+            desc = "Extract any script (English, Urdu, Hindi, Chinese, etc.) + 1-tap translation",
             icon = Icons.Default.TextFields,
             gradient = listOf(Color(0xFF3B82F6), Color(0xFF06B6D4))
+        ),
+        StudioItem(
+            tool = StudioTool.VIDEO_TO_TEXT,
+            title = "Video to Text",
+            tag = "Speech AI",
+            desc = "Convert speech from video/audio into text with live multi-language transcription",
+            icon = Icons.Default.Translate,
+            gradient = listOf(Color(0xFF10B981), Color(0xFF3B82F6))
+        ),
+        StudioItem(
+            tool = StudioTool.VIDEO_CLIPPER,
+            title = "Video Clipper",
+            tag = "Smart Clipper",
+            desc = "Lossless multi-segment clipping for 15s Story, 30s Status & 60s Reels",
+            icon = Icons.Default.ContentCut,
+            gradient = listOf(Color(0xFF6366F1), Color(0xFF3B82F6))
+        ),
+        StudioItem(
+            tool = StudioTool.VIDEO_DELOGO,
+            title = "Video Delogo",
+            tag = "Auto Watermark",
+            desc = "Auto-detects and seamlessly removes TikTok & Reels watermarks without blur",
+            icon = Icons.Default.Movie,
+            gradient = listOf(Color(0xFFF59E0B), Color(0xFFEF4444))
         ),
         StudioItem(
             tool = StudioTool.VIDEO_TEXT_REMOVER,
             title = "Video Text Eraser",
             tag = "Video Inpaint",
-            desc = "Cleanly erase subtitles, captions, or channel tags from video frames",
+            desc = "Cleanly inpaint subtitles, captions, or channel tags from video frames",
             icon = Icons.Default.Subtitles,
             gradient = listOf(Color(0xFFF97316), Color(0xFFEF4444))
         ),
         StudioItem(
-            tool = StudioTool.SPEECH_TRANSCRIBER,
-            title = "Video Speech Transcriber",
-            tag = "Any Language",
-            desc = "Convert speech from video/audio into text in English, Urdu, Hindi & more",
-            icon = Icons.Default.Translate,
-            gradient = listOf(Color(0xFF10B981), Color(0xFF3B82F6))
+            tool = StudioTool.TEXT_ERASER,
+            title = "Photo Text Eraser",
+            tag = "Smart Inpaint",
+            desc = "Detects text & seamlessly reconstructs background pixels without covering",
+            icon = Icons.Default.CleaningServices,
+            gradient = listOf(Color(0xFF8B5CF6), Color(0xFF6366F1))
         ),
         StudioItem(
             tool = StudioTool.MEDIA_ENHANCER,
@@ -209,22 +240,6 @@ fun AiStudioScreen(
             desc = "HD unsharp sharpening, dynamic contrast boost & vibrant HDR colors",
             icon = Icons.Default.HighQuality,
             gradient = listOf(Color(0xFFEC4899), Color(0xFFF59E0B))
-        ),
-        StudioItem(
-            tool = StudioTool.TEXT_ERASER,
-            title = "Photo Text Eraser",
-            tag = "Smart Inpaint",
-            desc = "Auto-detect text & seamlessly erase watermarks, logos and timestamps",
-            icon = Icons.Default.CleaningServices,
-            gradient = listOf(Color(0xFF6366F1), Color(0xFF8B5CF6))
-        ),
-        StudioItem(
-            tool = StudioTool.VIDEO_DELOGO,
-            title = "Video Delogo",
-            tag = "Video Cleaner",
-            desc = "Remove or blur TikTok, Reels, and channel corner watermarks",
-            icon = Icons.Default.Movie,
-            gradient = listOf(Color(0xFFF59E0B), Color(0xFFEF4444))
         ),
         StudioItem(
             tool = StudioTool.AUDIO_STUDIO,
@@ -359,11 +374,12 @@ fun AiStudioScreen(
                     }
                     StudioTool.BG_REMOVER -> PhotoBgRemoverView(snackbarHostState)
                     StudioTool.PHOTO_OCR -> PhotoOcrView(snackbarHostState)
+                    StudioTool.VIDEO_TO_TEXT -> VideoToTextView(snackbarHostState)
+                    StudioTool.VIDEO_CLIPPER -> VideoClipperView(snackbarHostState)
+                    StudioTool.VIDEO_DELOGO -> VideoDelogoView(snackbarHostState)
                     StudioTool.VIDEO_TEXT_REMOVER -> VideoTextEraserView(snackbarHostState)
-                    StudioTool.SPEECH_TRANSCRIBER -> SpeechTranscriberView(snackbarHostState)
                     StudioTool.MEDIA_ENHANCER -> MediaEnhancerView(snackbarHostState)
                     StudioTool.TEXT_ERASER -> PhotoTextEraserView(snackbarHostState)
-                    StudioTool.VIDEO_DELOGO -> VideoDelogoView(snackbarHostState)
                     StudioTool.AUDIO_STUDIO -> AudioStudioToolView(snackbarHostState)
                     StudioTool.MEDIA_TRIMMER -> UniversalTrimmerView(snackbarHostState)
                     StudioTool.SHORTS_REFRAME -> ShortsReframeView(snackbarHostState)
@@ -701,7 +717,7 @@ fun PhotoBgRemoverView(snackbarHostState: SnackbarHostState) {
 }
 
 /**
- * Tool 2: Copy Text from Photo (OCR with ML Kit)
+ * Tool 2: Copy Text from Photo & Multi-Language Translation
  */
 @Composable
 fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
@@ -710,7 +726,11 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
 
     var photoBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var extractedText by remember { mutableStateOf("") }
+    var translatedText by remember { mutableStateOf("") }
     var isScanning by remember { mutableStateOf(false) }
+    var isTranslating by remember { mutableStateOf(false) }
+    var selectedTargetLang by remember { mutableStateOf(PhotoOcrHelper.TRANSLATION_LANGUAGES[1]) }
+    var showLangMenu by remember { mutableStateOf(false) }
 
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -719,6 +739,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
             scope.launch {
                 photoBitmap = loadBitmapFromUri(context, it)
                 extractedText = ""
+                translatedText = ""
                 photoBitmap?.let { bmp ->
                     isScanning = true
                     val ocrRes = PhotoOcrHelper.recognizeText(context, bmp)
@@ -727,11 +748,11 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                         onSuccess = { res ->
                             extractedText = res.fullText
                             if (res.fullText.isBlank()) {
-                                snackbarHostState.showSnackbar("No text detected in this image.")
+                                Toast.makeText(context, "No text detected in this image.", Toast.LENGTH_SHORT).show()
                             }
                         },
                         onFailure = { err ->
-                            snackbarHostState.showSnackbar("OCR Error: ${err.message}")
+                            Toast.makeText(context, "OCR Error: ${err.message}", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -749,7 +770,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
             CenteredCircularMediaPicker(
                 icon = Icons.Default.TextFields,
                 title = "Select Photo with Text",
-                subtitle = "Auto-scans and extracts text for instant 1-tap copy",
+                subtitle = "Extracts all scripts (English, Urdu, Hindi, Chinese, etc.) + Instant Translate",
                 gradient = listOf(Color(0xFF3B82F6), Color(0xFF06B6D4)),
                 hasMedia = photoBitmap != null,
                 onClick = { photoPicker.launch("image/*") }
@@ -778,7 +799,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                     ) {
                         CircularProgressIndicator(color = KmbSecondary, modifier = Modifier.size(24.dp))
                         Spacer(Modifier.width(10.dp))
-                        Text("Extracting text via Google ML Kit...", color = Color.White, fontSize = 13.sp)
+                        Text("Extracting all language text via Google ML Kit...", color = Color.White, fontSize = 13.sp)
                     }
                 }
             }
@@ -813,7 +834,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                             OutlinedTextField(
                                 value = extractedText,
                                 onValueChange = { extractedText = it },
-                                modifier = Modifier.fillMaxWidth().height(180.dp),
+                                modifier = Modifier.fillMaxWidth().height(160.dp),
                                 textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = KmbPrimary,
@@ -864,11 +885,112 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                         }
                     }
                 }
+
+                // Translation Section
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF192032)),
+                        border = CardDefaults.outlinedCardBorder()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                "TRANSLATE TEXT",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF38BDF8)
+                            )
+
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedButton(
+                                    onClick = { showLangMenu = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Translate to: ${selectedTargetLang.displayName}", color = Color.White)
+                                }
+
+                                DropdownMenu(
+                                    expanded = showLangMenu,
+                                    onDismissRequest = { showLangMenu = false }
+                                ) {
+                                    PhotoOcrHelper.TRANSLATION_LANGUAGES.forEach { lang ->
+                                        DropdownMenuItem(
+                                            text = { Text(lang.displayName) },
+                                            onClick = {
+                                                selectedTargetLang = lang
+                                                showLangMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    isTranslating = true
+                                    scope.launch {
+                                        val res = PhotoOcrHelper.translateText(extractedText, selectedTargetLang.code)
+                                        isTranslating = false
+                                        res.fold(
+                                            onSuccess = {
+                                                translatedText = it
+                                                Toast.makeText(context, "Translation complete ✓", Toast.LENGTH_SHORT).show()
+                                            },
+                                            onFailure = {
+                                                Toast.makeText(context, "Translation error: ${it.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                                enabled = !isTranslating
+                            ) {
+                                Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (isTranslating) "Translating..." else "🌐 Translate to ${selectedTargetLang.displayName}")
+                            }
+
+                            if (translatedText.isNotBlank()) {
+                                OutlinedTextField(
+                                    value = translatedText,
+                                    onValueChange = { translatedText = it },
+                                    modifier = Modifier.fillMaxWidth().height(140.dp),
+                                    textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF38BDF8),
+                                        unfocusedBorderColor = Color(0xFF374151)
+                                    )
+                                )
+
+                                Button(
+                                    onClick = {
+                                        val clip = ClipData.newPlainText("Translated Text", translatedText)
+                                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                        cm?.setPrimaryClip(clip)
+                                        Toast.makeText(context, "Translation copied! 📋", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Copy Translation")
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
-
 /**
  * Tool 3: Video Text & Subtitle Eraser (Selectable Regions)
  */
@@ -1021,10 +1143,10 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
 }
 
 /**
- * Tool 4: Multilingual Video/Audio Speech Transcriber
+ * Tool 3: Video to Text (Real-time Speech Recognition & Video Transcription)
  */
 @Composable
-fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
+fun VideoToTextView(snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -1033,6 +1155,22 @@ fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
     var transcriptText by remember { mutableStateOf("") }
     var isTranscribing by remember { mutableStateOf(false) }
     var showLangMenu by remember { mutableStateOf(false) }
+    var isMicMode by remember { mutableStateOf(false) }
+
+    var hasAudioPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasAudioPermission = isGranted
+        if (!isGranted) {
+            Toast.makeText(context, "Microphone permission required for speech recognition", Toast.LENGTH_LONG).show()
+        }
+    }
 
     val mediaPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -1040,6 +1178,83 @@ fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
         uri?.let {
             selectedMediaUri = it
             transcriptText = ""
+        }
+    }
+
+    fun startRecognition() {
+        if (!hasAudioPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+
+        if (!SpeechTranscriberHelper.isRecognitionAvailable(context)) {
+            Toast.makeText(context, "Speech recognition is not supported or enabled on this device.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        isTranscribing = true
+        val mainHandler = Handler(Looper.getMainLooper())
+        mainHandler.post {
+            var player: MediaPlayer? = null
+            if (!isMicMode && selectedMediaUri != null) {
+                try {
+                    player = MediaPlayer().apply {
+                        setDataSource(context, selectedMediaUri!!)
+                        prepare()
+                        start()
+                    }
+                } catch (_: Exception) {}
+            }
+
+            val cleanup = {
+                try {
+                    if (player?.isPlaying == true) player.stop()
+                    player?.release()
+                } catch (_: Exception) {}
+            }
+
+            try {
+                val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                val intent = SpeechTranscriberHelper.createRecognizerIntent(selectedLang.code)
+                recognizer.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {}
+                    override fun onBeginningOfSpeech() {}
+                    override fun onRmsChanged(rmsdB: Float) {}
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+                    override fun onEndOfSpeech() {
+                        isTranscribing = false
+                        cleanup()
+                    }
+                    override fun onError(error: Int) {
+                        isTranscribing = false
+                        cleanup()
+                        val msg = when (error) {
+                            SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized. Speak closer or increase volume."
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech input timed out."
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission required."
+                            else -> "Recognition stopped (code $error)."
+                        }
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+                    override fun onResults(results: Bundle?) {
+                        isTranscribing = false
+                        cleanup()
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull() ?: ""
+                        if (text.isNotBlank()) transcriptText = text
+                    }
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        matches?.firstOrNull()?.let { transcriptText = it }
+                    }
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+                recognizer.startListening(intent)
+            } catch (e: Exception) {
+                isTranscribing = false
+                cleanup()
+                Toast.makeText(context, "Could not start recognizer: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -1052,12 +1267,46 @@ fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
         item {
             CenteredCircularMediaPicker(
                 icon = Icons.Default.Translate,
-                title = "Select Video or Audio",
-                subtitle = "Transcribes speech in English, Urdu, Hindi, Arabic & more",
+                title = if (isMicMode) "Microphone Mode" else "Select Video or Audio",
+                subtitle = if (isMicMode) "Tap transcribe to speak live" else "Transcribes speech in English, Urdu, Hindi, Arabic & more",
                 gradient = listOf(Color(0xFF10B981), Color(0xFF3B82F6)),
-                hasMedia = selectedMediaUri != null,
-                onClick = { mediaPicker.launch("video/*") }
+                hasMedia = selectedMediaUri != null || isMicMode,
+                onClick = {
+                    if (isMicMode) {
+                        isMicMode = false
+                    }
+                    mediaPicker.launch("video/*")
+                }
             )
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = { isMicMode = false },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (!isMicMode) KmbPrimary else Color(0xFF262C3A)
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("🎬 Video File", color = Color.White)
+                }
+
+                Button(
+                    onClick = { isMicMode = true },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isMicMode) KmbPrimary else Color(0xFF262C3A)
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("🎙️ Live Mic", color = Color.White)
+                }
+            }
         }
 
         item {
@@ -1090,181 +1339,107 @@ fun SpeechTranscriberView(snackbarHostState: SnackbarHostState) {
             }
         }
 
-        selectedMediaUri?.let { uri ->
+        item {
+            Button(
+                onClick = { startRecognition() },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                enabled = !isTranscribing
+            ) {
+                Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (isTranscribing) "Listening & Transcribing..." else "🎙 Transcribe Speech to Text")
+            }
+        }
+
+        if (isTranscribing) {
             item {
-                Button(
-                    onClick = {
-                        isTranscribing = true
-                        transcriptText = ""
-                        scope.launch {
-                            val available = SpeechTranscriberHelper.isRecognitionAvailable(context)
-                            if (!available) {
-                                isTranscribing = false
-                                snackbarHostState.showSnackbar("Speech recognition engine not available on this device.")
-                                return@launch
-                            }
-
-                            // Start audio playback so speech recognizer hears audio stream from video
-                            var player: MediaPlayer? = null
-                            try {
-                                player = MediaPlayer().apply {
-                                    setDataSource(context, uri)
-                                    prepare()
-                                    start()
-                                }
-                            } catch (_: Exception) {}
-
-                            val cleanup = {
-                                try {
-                                    if (player?.isPlaying == true) player.stop()
-                                    player?.release()
-                                } catch (_: Exception) {}
-                            }
-
-                            // Launch recognizer intent
-                            val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
-                            val intent = SpeechTranscriberHelper.createRecognizerIntent(selectedLang.code)
-                            recognizer.setRecognitionListener(object : RecognitionListener {
-                                override fun onReadyForSpeech(params: Bundle?) {}
-                                override fun onBeginningOfSpeech() {}
-                                override fun onRmsChanged(rmsdB: Float) {}
-                                override fun onBufferReceived(buffer: ByteArray?) {}
-                                override fun onEndOfSpeech() {
-                                    isTranscribing = false
-                                    cleanup()
-                                }
-                                override fun onError(error: Int) {
-                                    isTranscribing = false
-                                    cleanup()
-                                    scope.launch { snackbarHostState.showSnackbar("Speech recognizer completed / listening paused.") }
-                                }
-                                override fun onResults(results: Bundle?) {
-                                    isTranscribing = false
-                                    cleanup()
-                                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                                    val text = matches?.firstOrNull() ?: ""
-                                    if (text.isNotBlank()) transcriptText = text
-                                }
-                                override fun onPartialResults(partialResults: Bundle?) {
-                                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                                    matches?.firstOrNull()?.let { transcriptText = it }
-                                }
-                                override fun onEvent(eventType: Int, params: Bundle?) {}
-                            })
-                            recognizer.startListening(intent)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                    enabled = !isTranscribing
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (isTranscribing) "Transcribing..." else "🎙 Transcribe Speech to Text")
+                    CircularProgressIndicator(color = Color(0xFF10B981), modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Listening in ${selectedLang.displayName}...", color = Color.White, fontSize = 12.sp)
                 }
             }
+        }
 
-            if (isTranscribing) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(color = Color(0xFF10B981), modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text("Listening & Transcribing speech in ${selectedLang.displayName}...", color = Color.White, fontSize = 12.sp)
-                    }
-                }
-            }
-
-            if (transcriptText.isNotBlank()) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222B)),
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "TRANSCRIPT (${selectedLang.displayName})",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = KmbSecondary
-                                )
-                                Text(
-                                    "${transcriptText.split(" ").size} words",
-                                    fontSize = 11.sp,
-                                    color = Color.Gray
-                                )
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            OutlinedTextField(
-                                value = transcriptText,
-                                onValueChange = { transcriptText = it },
-                                modifier = Modifier.fillMaxWidth().height(160.dp),
-                                textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF10B981),
-                                    unfocusedBorderColor = Color(0xFF374151)
-                                )
+        if (transcriptText.isNotBlank()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222B)),
+                    border = CardDefaults.outlinedCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            "TRANSCRIBED TEXT",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF10B981)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = transcriptText,
+                            onValueChange = { transcriptText = it },
+                            modifier = Modifier.fillMaxWidth().height(160.dp),
+                            textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF10B981),
+                                unfocusedBorderColor = Color(0xFF374151)
                             )
-                        }
+                        )
                     }
                 }
+            }
 
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            val clip = ClipData.newPlainText("Transcript", transcriptText)
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                            cm?.setPrimaryClip(clip)
+                            Toast.makeText(context, "Transcript copied to clipboard! 📋", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary)
                     ) {
-                        Button(
-                            onClick = {
-                                val clip = ClipData.newPlainText("Transcript", transcriptText)
-                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                cm?.setPrimaryClip(clip)
-                                Toast.makeText(context, "Transcript copied to clipboard! 📋", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary)
-                        ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Copy Transcript", fontWeight = FontWeight.Bold)
-                        }
+                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Copy Text")
+                    }
 
-                        Button(
-                            onClick = {
-                                val sendIntent = Intent().apply {
-                                    action = Intent.ACTION_SEND
-                                    putExtra(Intent.EXTRA_TEXT, transcriptText)
-                                    type = "text/plain"
-                                }
-                                context.startActivity(Intent.createChooser(sendIntent, "Share Transcript"))
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Share", fontWeight = FontWeight.Bold)
-                        }
+                    Button(
+                        onClick = {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, transcriptText)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Transcript"))
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Share")
                     }
                 }
             }
         }
     }
 }
-
 /**
  * Tool 5: Photo & Video Quality Enhancer (Sharpness, Contrast & Vibrant HDR)
  */
@@ -1581,7 +1756,7 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
 }
 
 /**
- * Tool 6: Photo Text Eraser
+ * Tool 7: Photo Text Eraser (Seamless Boundary Inpainting)
  */
 @Composable
 fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
@@ -1592,7 +1767,6 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
     var resultBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isDetecting by remember { mutableStateOf(false) }
     var isErasing by remember { mutableStateOf(false) }
-    val detectedBoxes = remember { mutableStateListOf<DetectedTextBox>() }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -1601,7 +1775,6 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
             scope.launch {
                 originalBitmap = loadBitmapFromUri(context, it)
                 resultBitmap = null
-                detectedBoxes.clear()
             }
         }
     }
@@ -1617,8 +1790,8 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
             CenteredCircularMediaPicker(
                 icon = Icons.Default.CleaningServices,
                 title = "Select Image with Text/Logos",
-                subtitle = "Auto-detect text & inpaint background seamlessly",
-                gradient = listOf(Color(0xFF3B82F6), Color(0xFF10B981)),
+                subtitle = "Detects text & inpaint-reconstructs background pixels seamlessly without covering",
+                gradient = listOf(Color(0xFF8B5CF6), Color(0xFF6366F1)),
                 hasMedia = originalBitmap != null,
                 onClick = { photoPickerLauncher.launch("image/*") }
             )
@@ -1665,38 +1838,10 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                             } else if (isDetecting || isErasing) {
                                 CircularProgressIndicator(color = KmbSecondary)
                             } else {
-                                Text("Tap Auto-Erase", fontSize = 11.sp, color = Color.Gray)
+                                Text("Tap Erase Text", fontSize = 11.sp, color = Color.Gray)
                             }
                         }
                     }
-                }
-            }
-
-            item {
-                Button(
-                    onClick = {
-                        isErasing = true
-                        scope.launch {
-                            val zones = ImageInpaintHelper.getFullScreenTextZones(orig.width, orig.height)
-                            val eraseRes = ImageInpaintHelper.eraseAreas(orig, zones)
-                            isErasing = false
-                            eraseRes.fold(
-                                onSuccess = { cleanBmp ->
-                                    resultBitmap = cleanBmp
-                                    Toast.makeText(context, "✓ All screen text (top, center & subtitles) erased!", Toast.LENGTH_SHORT).show()
-                                },
-                                onFailure = { snackbarHostState.showSnackbar("Erase failed: ${it.message}") }
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                    enabled = !isDetecting && !isErasing
-                ) {
-                    Icon(Icons.Default.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (isErasing) "Erasing All Screen Text..." else "🌟 Erase All Screen Text (Top, Center & Subtitles)")
                 }
             }
 
@@ -1710,7 +1855,7 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                             detectRes.fold(
                                 onSuccess = { boxes ->
                                     if (boxes.isEmpty()) {
-                                        snackbarHostState.showSnackbar("No text or watermarks detected in this image.")
+                                        Toast.makeText(context, "No text detected in this image.", Toast.LENGTH_SHORT).show()
                                     } else {
                                         isErasing = true
                                         val rects = boxes.map { it.rect }
@@ -1721,26 +1866,30 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                                                 resultBitmap = cleanBmp
                                                 Toast.makeText(context, "✓ Erased ${boxes.size} text areas seamlessly!", Toast.LENGTH_SHORT).show()
                                             },
-                                            onFailure = { snackbarHostState.showSnackbar("Erase failed: ${it.message}") }
+                                            onFailure = {
+                                                Toast.makeText(context, "Erase failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                                            }
                                         )
                                     }
                                 },
-                                onFailure = { snackbarHostState.showSnackbar("Text detection failed: ${it.message}") }
+                                onFailure = {
+                                    Toast.makeText(context, "Detection failed: ${it.message}", Toast.LENGTH_SHORT).show()
+                                }
                             )
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
                     enabled = !isDetecting && !isErasing
                 ) {
                     Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
                         when {
-                            isDetecting -> "Detecting Text & Watermarks..."
-                            isErasing -> "Inpainting Clean Pixels..."
-                            else -> "🧹 Smart ML Kit Text Eraser"
+                            isDetecting -> "Scanning all text scripts..."
+                            isErasing -> "Inpainting background pixels..."
+                            else -> "🧹 Auto-Detect & Erase All Text"
                         }
                     )
                 }
@@ -1756,7 +1905,7 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                                     onSuccess = {
                                         Toast.makeText(context, "✓ Saved to Pictures/KMB AI Studio!", Toast.LENGTH_SHORT).show()
                                     },
-                                    onFailure = { snackbarHostState.showSnackbar("Save failed: ${it.message}") }
+                                    onFailure = { Toast.makeText(context, "Save failed: ${it.message}", Toast.LENGTH_SHORT).show() }
                                 )
                             }
                         },
@@ -1773,9 +1922,8 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
         }
     }
 }
-
 /**
- * Tool 7: Video Delogo & Watermark Remover
+ * Tool 5: Video Delogo (Auto Watermark Remover)
  */
 @Composable
 fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
@@ -1783,7 +1931,6 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
     val scope = rememberCoroutineScope()
 
     var selectedVideoUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedPosition by remember { mutableStateOf(WatermarkPosition.BOTTOM_RIGHT) }
     var isProcessing by remember { mutableStateOf(false) }
     var progressStatus by remember { mutableStateOf("") }
     var cleanedVideoFile by remember { mutableStateOf<File?>(null) }
@@ -1804,81 +1951,32 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { videoPickerLauncher.launch("video/*") },
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                border = CardDefaults.outlinedCardBorder()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFFF59E0B), Color(0xFFEF4444)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Movie, contentDescription = null, tint = Color.White)
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (selectedVideoUri == null) "Select Video from Device" else "Video Ready",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Blurs out TikTok, Reels or platform logos",
-                            fontSize = 11.sp,
-                            color = Color(0xFF9CA3AF)
-                        )
-                    }
-                }
-            }
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.Movie,
+                title = "Select Video for Delogo",
+                subtitle = "Auto-detects & seamlessly removes TikTok / Reels watermarks without blur",
+                gradient = listOf(Color(0xFFF59E0B), Color(0xFFEF4444)),
+                hasMedia = selectedVideoUri != null,
+                onClick = { videoPickerLauncher.launch("video/*") }
+            )
         }
 
         selectedVideoUri?.let { uri ->
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Watermark Position:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        PositionButton(
-                            label = "Bottom Right",
-                            selected = selectedPosition == WatermarkPosition.BOTTOM_RIGHT,
-                            onClick = { selectedPosition = WatermarkPosition.BOTTOM_RIGHT },
-                            modifier = Modifier.weight(1f)
-                        )
-                        PositionButton(
-                            label = "Top Right",
-                            selected = selectedPosition == WatermarkPosition.TOP_RIGHT,
-                            onClick = { selectedPosition = WatermarkPosition.TOP_RIGHT },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        PositionButton(
-                            label = "Bottom Left",
-                            selected = selectedPosition == WatermarkPosition.BOTTOM_LEFT,
-                            onClick = { selectedPosition = WatermarkPosition.BOTTOM_LEFT },
-                            modifier = Modifier.weight(1f)
-                        )
-                        PositionButton(
-                            label = "Top Left",
-                            selected = selectedPosition == WatermarkPosition.TOP_LEFT,
-                            onClick = { selectedPosition = WatermarkPosition.TOP_LEFT },
-                            modifier = Modifier.weight(1f)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2433)),
+                    border = CardDefaults.outlinedCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text("⚡ Auto Watermark Removal", fontWeight = FontWeight.Bold, color = Color(0xFFF59E0B), fontSize = 13.sp)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Automatically targets and reconstructs video background across TikTok and Reels watermark positions using boundary interpolation (no foggy blur box).",
+                            color = Color(0xFF9CA3AF),
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
                         )
                     }
                 }
@@ -1888,30 +1986,22 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
                 Button(
                     onClick = {
                         isProcessing = true
-                        progressStatus = "Resolving video path..."
+                        progressStatus = "Auto-detecting and interpolating watermarks..."
                         scope.launch {
-                            val path = getPathFromUri(context, uri)
-                            if (path == null) {
-                                isProcessing = false
-                                snackbarHostState.showSnackbar("Cannot resolve video file path.")
-                                return@launch
-                            }
-
-                            val result = VideoWatermarkHelper.removeWatermark(
+                            val path = uri.toString()
+                            val res = VideoWatermarkHelper.autoRemoveWatermarks(
                                 context = context,
                                 inputFilePath = path,
-                                position = selectedPosition,
                                 onProgress = { progressStatus = it }
                             )
-
                             isProcessing = false
-                            result.fold(
+                            res.fold(
                                 onSuccess = { file ->
                                     cleanedVideoFile = file
                                     Toast.makeText(context, "✓ Clean video saved to Movies/KMB AI Studio!", Toast.LENGTH_SHORT).show()
                                 },
                                 onFailure = { err ->
-                                    snackbarHostState.showSnackbar("Delogo error: ${err.message}")
+                                    Toast.makeText(context, "Delogo error: ${err.message}", Toast.LENGTH_SHORT).show()
                                 }
                             )
                         }
@@ -1923,7 +2013,7 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
                 ) {
                     Icon(Icons.Default.Movie, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(if (isProcessing) "Processing..." else "🎬 Remove Watermark & Save")
+                    Text(if (isProcessing) "Removing Watermark..." else "🪄 Auto-Delogo Video (Remove Watermark)")
                 }
             }
 
@@ -1962,7 +2052,6 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
         }
     }
 }
-
 /**
  * Tool 8: Audio & Ringtone Studio
  */
@@ -2390,5 +2479,163 @@ private fun getPathFromUri(context: Context, uri: Uri): String? {
         temp.absolutePath
     } catch (_: Exception) {
         null
+    }
+}
+
+
+/**
+ * Tool 4: Video Clipper (Multi-Segment Lossless Clipper)
+ */
+@Composable
+fun VideoClipperView(snackbarHostState: SnackbarHostState) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var selectedVideoUri by remember { mutableStateOf<Uri?>(null) }
+    var startTime by remember { mutableStateOf("00:00") }
+    var endTime by remember { mutableStateOf("00:30") }
+    var isProcessing by remember { mutableStateOf(false) }
+    var clippedFile by remember { mutableStateOf<File?>(null) }
+
+    val videoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            selectedVideoUri = it
+            clippedFile = null
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            CenteredCircularMediaPicker(
+                icon = Icons.Default.ContentCut,
+                title = "Select Video to Clip",
+                subtitle = "Lossless multi-segment clip creator for WhatsApp, Reels & Stories",
+                gradient = listOf(Color(0xFF6366F1), Color(0xFF3B82F6)),
+                hasMedia = selectedVideoUri != null,
+                onClick = { videoPicker.launch("video/*") }
+            )
+        }
+
+        selectedVideoUri?.let { uri ->
+            item {
+                Text("Quick Clip Presets:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { startTime = "00:00"; endTime = "00:15" },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262C3A))
+                    ) {
+                        Text("15s Story", fontSize = 11.sp, color = Color.White)
+                    }
+
+                    Button(
+                        onClick = { startTime = "00:00"; endTime = "00:30" },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary.copy(alpha = 0.5f))
+                    ) {
+                        Text("30s Status", fontSize = 11.sp, color = Color.White)
+                    }
+
+                    Button(
+                        onClick = { startTime = "00:00"; endTime = "01:00" },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262C3A))
+                    ) {
+                        Text("60s Reel", fontSize = 11.sp, color = Color.White)
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = startTime,
+                        onValueChange = { startTime = it },
+                        label = { Text("Start (mm:ss)") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = endTime,
+                        onValueChange = { endTime = it },
+                        label = { Text("End (mm:ss)") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            }
+
+            item {
+                Button(
+                    onClick = {
+                        isProcessing = true
+                        scope.launch {
+                            val res = VideoTrimmerHelper.trimMedia(
+                                context = context,
+                                inputFilePath = uri.toString(),
+                                startTime = startTime,
+                                endTime = endTime
+                            )
+                            isProcessing = false
+                            res.fold(
+                                onSuccess = { file ->
+                                    clippedFile = file
+                                    Toast.makeText(context, "✓ Video clip saved to Movies/KMB AI Studio!", Toast.LENGTH_SHORT).show()
+                                },
+                                onFailure = {
+                                    Toast.makeText(context, "Clipper error: ${it.message}", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    enabled = !isProcessing
+                ) {
+                    Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isProcessing) "Clipping..." else "✂️ Export Lossless Video Clip")
+                }
+            }
+
+            clippedFile?.let {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.2f)),
+                        border = CardDefaults.outlinedCardBorder()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF10B981))
+                            Spacer(Modifier.width(10.dp))
+                            Text("Clip saved to Movies/KMB AI Studio", color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }

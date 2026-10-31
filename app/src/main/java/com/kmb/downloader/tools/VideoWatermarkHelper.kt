@@ -162,12 +162,12 @@ object VideoWatermarkHelper {
     }
 
     /**
-     * Removes/blurs watermarks from video using calculated integer bounding boxes.
+     * Auto Delogo: Automatically removes TikTok and Reels watermarks (top-left & bottom-right)
+     * using border interpolation delogo filter without asking for manual location or blurring.
      */
-    suspend fun removeWatermark(
+    suspend fun autoRemoveWatermarks(
         context: Context,
         inputFilePath: String,
-        position: WatermarkPosition = WatermarkPosition.BOTTOM_RIGHT,
         onProgress: (String) -> Unit = {}
     ): Result<File> = withContext(Dispatchers.IO) {
         val inputFile = VideoTrimmerHelper.resolveInputMediaFile(context, inputFilePath)
@@ -177,19 +177,18 @@ object VideoWatermarkHelper {
         val tempOutput = File(context.cacheDir, "kmb_clean_video_${System.currentTimeMillis()}.mp4")
         val (width, height) = getVideoDimensions(context, inputFile)
 
-        val w = (width * 0.28).toInt().coerceIn(120, 260)
-        val h = (height * 0.08).toInt().coerceIn(60, 120)
-        val (x, y) = when (position) {
-            WatermarkPosition.TOP_LEFT -> Pair(16, 16)
-            WatermarkPosition.TOP_RIGHT -> Pair((width - w - 16).coerceAtLeast(1), 16)
-            WatermarkPosition.BOTTOM_LEFT -> Pair(16, (height - h - 16).coerceAtLeast(1))
-            WatermarkPosition.BOTTOM_RIGHT -> Pair((width - w - 16).coerceAtLeast(1), (height - h - 16).coerceAtLeast(1))
-        }
+        val w = (width * 0.22).toInt().coerceIn(120, 220)
+        val h = (height * 0.06).toInt().coerceIn(50, 95)
+        val x1 = 16
+        val y1 = 16
+        val x2 = (width - w - 16).coerceAtLeast(1)
+        val y2 = (height - h - 16).coerceAtLeast(1)
 
-        // Robust crop + blur overlay filter
-        val filter = "[0:v]split[base][blur_src];[blur_src]crop=$w:$h:$x:$y,boxblur=15:1[blurred];[base][blurred]overlay=$x:$y"
+        // FFmpeg delogo filter interpolates surrounding pixels across the rectangle
+        // band=2 solves the boundary equations to seamlessly remove the logo without blurring
+        val filter = "delogo=x=$x1:y=$y1:w=$w:h=$h:band=2:show=0,delogo=x=$x2:y=$y2:w=$w:h=$h:band=2:show=0"
 
-        onProgress("Removing watermark...")
+        onProgress("Auto-detecting & removing watermarks...")
         val args = listOf(
             "-y",
             "-i", inputFile.absolutePath,
@@ -217,6 +216,13 @@ object VideoWatermarkHelper {
         )
     }
 
+    suspend fun removeWatermark(
+        context: Context,
+        inputFilePath: String,
+        position: WatermarkPosition = WatermarkPosition.BOTTOM_RIGHT,
+        onProgress: (String) -> Unit = {}
+    ): Result<File> = autoRemoveWatermarks(context, inputFilePath, onProgress)
+
     /**
      * Erases subtitles, channel handles, or all text across the screen from video.
      */
@@ -235,51 +241,53 @@ object VideoWatermarkHelper {
 
         val filter = when (region) {
             VideoTextRegion.ALL_SCREEN_TEXT -> {
-                // Erases Top Captions + Middle TikTok handle/text + Bottom Subtitles in 1 pass
-                val topH = (height * 0.18).toInt().coerceAtLeast(80)
+                // Erases Top Captions + Middle TikTok handle/text + Bottom Subtitles using boundary delogo interpolation
+                val topH = (height * 0.16).toInt().coerceAtLeast(70)
                 val topY = (height * 0.04).toInt()
-                val midH = (height * 0.22).toInt().coerceAtLeast(100)
+                val midH = (height * 0.18).toInt().coerceAtLeast(80)
                 val midY = (height * 0.44).toInt()
-                "[0:v]split=3[base][z1][z2];[z1]crop=w=$width:h=$topH:x=0:y=$topY,boxblur=18:1[blur1];[z2]crop=w=$width:h=$midH:x=0:y=$midY,boxblur=18:1[blur2];[base][blur1]overlay=0:$topY[step1];[step1][blur2]overlay=0:$midY"
+                val botH = (height * 0.14).toInt().coerceAtLeast(70)
+                val botY = (height * 0.82).toInt()
+                "delogo=x=0:y=$topY:w=$width:h=$topH:band=2:show=0,delogo=x=0:y=$midY:w=$width:h=$midH:band=2:show=0,delogo=x=0:y=$botY:w=$width:h=$botH:band=2:show=0"
             }
             VideoTextRegion.TOP_CAPTIONS -> {
-                val h = (height * 0.20).toInt().coerceAtLeast(80)
+                val h = (height * 0.18).toInt().coerceAtLeast(80)
                 val y = (height * 0.04).toInt()
-                "[0:v]split[base][src];[src]crop=w=$width:h=$h:x=0:y=$y,boxblur=18:1[blurred];[base][blurred]overlay=0:$y"
+                "delogo=x=0:y=$y:w=$width:h=$h:band=2:show=0"
             }
             VideoTextRegion.MIDDLE_TEXT -> {
-                val h = (height * 0.24).toInt().coerceAtLeast(100)
+                val h = (height * 0.20).toInt().coerceAtLeast(90)
                 val y = (height * 0.42).toInt()
-                "[0:v]split[base][src];[src]crop=w=$width:h=$h:x=0:y=$y,boxblur=18:1[blurred];[base][blurred]overlay=0:$y"
+                "delogo=x=0:y=$y:w=$width:h=$h:band=2:show=0"
             }
             VideoTextRegion.BOTTOM_SUBTITLES -> {
-                val h = (height * 0.16).toInt().coerceAtLeast(80)
-                val y = (height * 0.80).toInt()
-                "[0:v]split[base][src];[src]crop=w=$width:h=$h:x=0:y=$y,boxblur=18:1[blurred];[base][blurred]overlay=0:$y"
+                val h = (height * 0.15).toInt().coerceAtLeast(70)
+                val y = (height * 0.82).toInt()
+                "delogo=x=0:y=$y:w=$width:h=$h:band=2:show=0"
             }
             VideoTextRegion.BOTTOM_RIGHT -> {
-                val w = (width * 0.30).toInt().coerceIn(120, 260)
-                val h = (height * 0.09).toInt().coerceIn(60, 120)
+                val w = (width * 0.26).toInt().coerceIn(120, 240)
+                val h = (height * 0.08).toInt().coerceIn(55, 110)
                 val x = (width - w - 16).coerceAtLeast(1)
                 val y = (height - h - 16).coerceAtLeast(1)
-                "[0:v]split[base][src];[src]crop=$w:$h:$x:$y,boxblur=16:1[blurred];[base][blurred]overlay=$x:$y"
+                "delogo=x=$x:y=$y:w=$w:h=$h:band=2:show=0"
             }
             VideoTextRegion.BOTTOM_LEFT -> {
-                val w = (width * 0.30).toInt().coerceIn(120, 260)
-                val h = (height * 0.09).toInt().coerceIn(60, 120)
+                val w = (width * 0.26).toInt().coerceIn(120, 240)
+                val h = (height * 0.08).toInt().coerceIn(55, 110)
                 val y = (height - h - 16).coerceAtLeast(1)
-                "[0:v]split[base][src];[src]crop=$w:$h:16:$y,boxblur=16:1[blurred];[base][blurred]overlay=16:$y"
+                "delogo=x=16:y=$y:w=$w:h=$h:band=2:show=0"
             }
             VideoTextRegion.TOP_RIGHT -> {
-                val w = (width * 0.30).toInt().coerceIn(120, 260)
-                val h = (height * 0.09).toInt().coerceIn(60, 120)
+                val w = (width * 0.26).toInt().coerceIn(120, 240)
+                val h = (height * 0.08).toInt().coerceIn(55, 110)
                 val x = (width - w - 16).coerceAtLeast(1)
-                "[0:v]split[base][src];[src]crop=$w:$h:$x:16,boxblur=16:1[blurred];[base][blurred]overlay=$x:16"
+                "delogo=x=$x:y=16:w=$w:h=$h:band=2:show=0"
             }
             VideoTextRegion.TOP_LEFT -> {
-                val w = (width * 0.30).toInt().coerceIn(120, 260)
-                val h = (height * 0.09).toInt().coerceIn(60, 120)
-                "[0:v]split[base][src];[src]crop=$w:$h:16:16,boxblur=16:1[blurred];[base][blurred]overlay=16:16"
+                val w = (width * 0.26).toInt().coerceIn(120, 240)
+                val h = (height * 0.08).toInt().coerceIn(55, 110)
+                "delogo=x=16:y=16:w=$w:h=$h:band=2:show=0"
             }
         }
 

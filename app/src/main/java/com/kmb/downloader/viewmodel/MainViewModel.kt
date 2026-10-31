@@ -13,6 +13,8 @@ import com.kmb.downloader.data.DownloadItem
 import com.kmb.downloader.data.SavedLink
 import com.kmb.downloader.download.DownloadHelper
 import com.kmb.downloader.download.DownloadService
+import com.kmb.downloader.download.MetadataFetcherHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -137,6 +139,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                         detectedAt = System.currentTimeMillis()
                                     )
                                 )
+                                fetchAndStoreMetadata(clean)
                                 newCount++
                             }
                         }
@@ -178,6 +181,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                         detectedAt = System.currentTimeMillis()
                                     )
                                 )
+                                fetchAndStoreMetadata(clean)
                                 newCount++
                             }
                         }
@@ -284,6 +288,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val item = DownloadItem(
                     url = clean,
                     title = if (!timeRange.isNullOrBlank()) "$initialTitle [Trim $timeRange]" else initialTitle,
+                    description = saved?.note,
                     thumbnail = saved?.thumbnail,
                     platform = platform,
                     quality = q,
@@ -476,6 +481,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             else SimpleDateFormat("dd MMM yyyy • HH:mm", Locale.getDefault()).format(Date(timestamp))
         } catch (_: Exception) {
             ""
+        }
+    }
+
+    private fun fetchAndStoreMetadata(url: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val meta = MetadataFetcherHelper.fetchMetadata(url) ?: return@launch
+            val existing = savedDao.findByUrl(url) ?: return@launch
+            savedDao.update(
+                existing.copy(
+                    title = meta.title,
+                    note = meta.description,
+                    thumbnail = meta.thumbnail ?: existing.thumbnail
+                )
+            )
         }
     }
 }

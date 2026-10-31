@@ -22,11 +22,11 @@ import kotlin.math.max
 
 enum class BgMode {
     TRANSPARENT,
+    BLUR,
     WHITE,
     DARK_STUDIO,
     BLUE,
-    PURPLE,
-    BLUR
+    PURPLE
 }
 
 data class SegmentationResult(
@@ -54,6 +54,7 @@ object ImageBgRemoverHelper {
 
     /**
      * Extracts a high-definition segmentation mask using on-device Google ML Kit.
+     * Raw size mask is enabled so the mask output matches exact bitmap resolution.
      */
     suspend fun extractSegmentationMask(
         inputBitmap: Bitmap
@@ -62,7 +63,7 @@ object ImageBgRemoverHelper {
             val scaledBitmap = prepareBitmap(inputBitmap, 1280)
             val options = SelfieSegmenterOptions.Builder()
                 .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
-                // Note: Not enabling raw size mask allows ML Kit to return full-sized mask
+                .enableRawSizeMask()
                 .build()
 
             val segmenter = Segmentation.getClient(options)
@@ -102,6 +103,7 @@ object ImageBgRemoverHelper {
 
     /**
      * Composes the segmented foreground with the chosen background mode.
+     * Features smooth bilateral feathering and genuine portrait bokeh blur.
      */
     fun composeBackground(
         baseBitmap: Bitmap,
@@ -118,9 +120,16 @@ object ImageBgRemoverHelper {
         baseBitmap.getPixels(inputPixels, 0, width, 0, 0, width, height)
         val outputPixels = IntArray(width * height)
 
+        val blurredBitmap = if (mode == BgMode.BLUR) createBokehBlur(baseBitmap, 16) else null
+        val blurPixels = if (blurredBitmap != null) {
+            val bp = IntArray(width * height)
+            blurredBitmap.getPixels(bp, 0, width, 0, 0, width, height)
+            bp
+        } else null
+
         val bgColor = when (mode) {
             BgMode.WHITE -> Color.WHITE
-            BgMode.DARK_STUDIO -> Color.rgb(24, 28, 40)
+            BgMode.DARK_STUDIO -> Color.rgb(20, 24, 34)
             BgMode.BLUE -> Color.rgb(37, 99, 235)
             BgMode.PURPLE -> Color.rgb(124, 58, 237)
             else -> Color.TRANSPARENT
@@ -132,36 +141,45 @@ object ImageBgRemoverHelper {
         for (y in 0 until height) {
             val my = (y * scaleY).toInt().coerceIn(0, maskHeight - 1)
             val myOffset = my * maskWidth
+            val rowOffset = y * width
+
             for (x in 0 until width) {
-                val index = y * width + x
+                val index = rowOffset + x
                 val origColor = inputPixels[index]
 
                 val mx = (x * scaleX).toInt().coerceIn(0, maskWidth - 1)
                 val rawConf = alphaMask[myOffset + mx]
 
-                // Bilinear feathering / smoothstep for silky edges:
-                // smoothstep(edge0, edge1, x): hermite interpolation between 0 and 1
-                val edge0 = 0.30f
+                // Ultra-smooth sigmoidal feathering for professional edges without harsh cutouts:
+                val edge0 = 0.25f
                 val edge1 = 0.75f
                 val t = ((rawConf - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
                 val alphaFloat = t * t * (3f - 2f * t)
-                val alpha = (alphaFloat * 255f).toInt().coerceIn(0, 255)
 
-                if (alpha == 255) {
-                    outputPixels[index] = origColor
-                } else if (alpha == 0) {
-                    outputPixels[index] = if (mode == BgMode.TRANSPARENT) Color.TRANSPARENT else bgColor
-                } else {
-                    if (mode == BgMode.TRANSPARENT) {
-                        val r = Color.red(origColor)
-                        val g = Color.green(origColor)
-                        val b = Color.blue(origColor)
-                        outputPixels[index] = Color.argb(alpha, r, g, b)
-                    } else {
-                        val factor = alphaFloat
-                        val r = (Color.red(origColor) * factor + Color.red(bgColor) * (1f - factor)).toInt()
-                        val g = (Color.green(origColor) * factor + Color.green(bgColor) * (1f - factor)).toInt()
-                        val b = (Color.blue(origColor) * factor + Color.blue(bgColor) * (1f - factor)).toInt()
+                when (mode) {
+                    BgMode.TRANSPARENT -> {
+                        val alphaInt = (alphaFloat * 255f).toInt().coerceIn(0, 255)
+                        if (alphaInt == 0) {
+                            outputPixels[index] = Color.TRANSPARENT
+                        } else {
+                            val r = Color.red(origColor)
+                            val g = Color.green(origColor)
+                            val b = Color.blue(origColor)
+                            outputPixels[index] = Color.argb(alphaInt, r, g, b)
+                        }
+                    }
+                    BgMode.BLUR -> {
+                        val blurColor = blurPixels?.get(index) ?: origColor
+                        val r = (Color.red(origColor) * alphaFloat + Color.red(blurColor) * (1f - alphaFloat)).toInt().coerceIn(0, 255)
+                        val g = (Color.green(origColor) * alphaFloat + Color.green(blurColor) * (1f - alphaFloat)).toInt().coerceIn(0, 255)
+                        val b = (Color.blue(origColor) * alphaFloat + Color.blue(blurColor) * (1f - alphaFloat)).toInt().coerceIn(0, 255)
+                        outputPixels[index] = Color.rgb(r, g, b)
+                    }
+                    else -> {
+                        // Solid Studio Backgrounds
+                        val r = (Color.red(origColor) * alphaFloat + Color.red(bgColor) * (1f - alphaFloat)).toInt().coerceIn(0, 255)
+                        val g = (Color.green(origColor) * alphaFloat + Color.green(bgColor) * (1f - alphaFloat)).toInt().coerceIn(0, 255)
+                        val b = (Color.blue(origColor) * alphaFloat + Color.blue(bgColor) * (1f - alphaFloat)).toInt().coerceIn(0, 255)
                         outputPixels[index] = Color.rgb(r, g, b)
                     }
                 }
@@ -169,38 +187,99 @@ object ImageBgRemoverHelper {
         }
 
         outputBitmap.setPixels(outputPixels, 0, width, 0, 0, width, height)
-
-        if (mode == BgMode.BLUR) {
-            val blurred = blurBitmap(baseBitmap, 18)
-            val combined = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(combined)
-            canvas.drawBitmap(blurred, 0f, 0f, null)
-            canvas.drawBitmap(outputBitmap, 0f, 0f, null)
-            return combined
-        }
-
         return outputBitmap
     }
 
     /**
-     * Standalone background removal entry point.
+     * Creates a high-fidelity camera bokeh blur for portrait background.
      */
-    suspend fun removeBackground(
-        context: Context,
-        inputBitmap: Bitmap,
-        mode: BgMode = BgMode.TRANSPARENT
-    ): Result<Bitmap> = withContext(Dispatchers.Default) {
-        val maskRes = extractSegmentationMask(inputBitmap)
-        maskRes.map { seg ->
-            composeBackground(seg.processedBitmap, seg.alphaMask, seg.maskWidth, seg.maskHeight, mode)
-        }
+    private fun createBokehBlur(source: Bitmap, radius: Int = 16): Bitmap {
+        val width = source.width
+        val height = source.height
+
+        // Downsample slightly for soft optical blur
+        val downW = (width / 4).coerceAtLeast(1)
+        val downH = (height / 4).coerceAtLeast(1)
+        val small = Bitmap.createScaledBitmap(source, downW, downH, true)
+
+        val pixels = IntArray(downW * downH)
+        small.getPixels(pixels, 0, downW, 0, 0, downW, downH)
+
+        val r = radius.coerceIn(4, 25)
+        val blurredPixels = boxBlurPass(pixels, downW, downH, r)
+        small.setPixels(blurredPixels, 0, downW, 0, 0, downW, downH)
+
+        return Bitmap.createScaledBitmap(small, width, height, true)
     }
 
-    private fun blurBitmap(source: Bitmap, radius: Int): Bitmap {
-        val smallW = (source.width / 5).coerceAtLeast(1)
-        val smallH = (source.height / 5).coerceAtLeast(1)
-        val small = Bitmap.createScaledBitmap(source, smallW, smallH, true)
-        return Bitmap.createScaledBitmap(small, source.width, source.height, true)
+    private fun boxBlurPass(src: IntArray, w: Int, h: Int, r: Int): IntArray {
+        val dst = IntArray(w * h)
+        val wm = w - 1
+        val hm = h - 1
+        val wh = w * h
+        val div = r + r + 1
+
+        val rAcc = IntArray(wh)
+        val gAcc = IntArray(wh)
+        val bAcc = IntArray(wh)
+
+        var rsum: Int
+        var gsum: Int
+        var bsum: Int
+        var p: Int
+        var yi = 0
+        var yw = 0
+
+        for (y in 0 until h) {
+            rsum = 0
+            gsum = 0
+            bsum = 0
+            for (i in -r..r) {
+                p = src[yi + i.coerceIn(0, wm)]
+                rsum += (p ushr 16) and 0xff
+                gsum += (p ushr 8) and 0xff
+                bsum += p and 0xff
+            }
+            for (x in 0 until w) {
+                rAcc[yi] = rsum / div
+                gAcc[yi] = gsum / div
+                bAcc[yi] = bsum / div
+
+                val p1 = src[yw + (x + r + 1).coerceAtMost(wm)]
+                val p2 = src[yw + (x - r).coerceAtLeast(0)]
+
+                rsum += ((p1 ushr 16) and 0xff) - ((p2 ushr 16) and 0xff)
+                gsum += ((p1 ushr 8) and 0xff) - ((p2 ushr 8) and 0xff)
+                bsum += (p1 and 0xff) - (p2 and 0xff)
+                yi++
+            }
+            yw += w
+        }
+
+        for (x in 0 until w) {
+            rsum = 0
+            gsum = 0
+            bsum = 0
+            var yp = -r * w
+            for (i in -r..r) {
+                yi = (yp + x).coerceIn(0, wh - 1)
+                rsum += rAcc[yi]
+                gsum += gAcc[yi]
+                bsum += bAcc[yi]
+                yp += w
+            }
+            yi = x
+            for (y in 0 until h) {
+                dst[yi] = (0xff shl 24) or ((rsum / div) shl 16) or ((gsum / div) shl 8) or (bsum / div)
+                val y1 = (y + r + 1).coerceAtMost(hm) * w + x
+                val y2 = (y - r).coerceAtLeast(0) * w + x
+                rsum += rAcc[y1] - rAcc[y2]
+                gsum += gAcc[y1] - gAcc[y2]
+                bsum += bAcc[y1] - bAcc[y2]
+                yi += w
+            }
+        }
+        return dst
     }
 
     /**

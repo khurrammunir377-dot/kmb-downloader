@@ -825,14 +825,18 @@ fun HomeScreen(
                             onDownload = { viewModel.startDownload(link.url) },
                             onDelete = { viewModel.deleteSavedLink(link.id) },
                             onClickIcon = {
+                                val cleanTitle = link.title?.takeIf { it.isNotBlank() && it != "Quick Download" && !it.endsWith("Video") }
+                                    ?: link.title ?: link.url
+                                val cleanDesc = link.note?.takeIf { it.isNotBlank() }
+                                    ?: "Preserved offline link from ${link.platform}"
                                 detailsItemToShow = MediaDetailsInfo(
-                                    title = link.title ?: link.url,
+                                    title = cleanTitle,
                                     platform = link.platform,
                                     url = link.url,
                                     dateText = formattedDate,
                                     quality = "Original Web Stream",
                                     status = if (link.isDownloaded) "Downloaded" else "Saved for Later",
-                                    description = link.note ?: (if (!link.title.isNullOrBlank()) "Web media link detected and preserved for offline download." else "Web Media Stream"),
+                                    description = cleanDesc,
                                     thumbnail = link.thumbnail,
                                     onDownload = { viewModel.startDownload(link.url) }
                                 )
@@ -898,8 +902,12 @@ fun HomeScreen(
                             onCancel = { viewModel.cancelDownload(item.id) },
                             onDelete = { viewModel.deleteDownload(item) },
                             onClickIcon = {
+                                val cleanTitle = item.title.takeIf { it.isNotBlank() && it != "Unknown" && it != "Downloading…" }
+                                    ?: item.url
+                                val cleanDesc = item.description?.takeIf { it.isNotBlank() && it != cleanTitle }
+                                    ?: "Downloaded video from ${item.platform} (${item.quality})"
                                 detailsItemToShow = MediaDetailsInfo(
-                                    title = item.title.ifBlank { item.url },
+                                    title = cleanTitle,
                                     platform = item.platform,
                                     url = item.url,
                                     dateText = formattedDate,
@@ -907,7 +915,7 @@ fun HomeScreen(
                                     fileSize = item.fileSize,
                                     status = item.status,
                                     filePath = item.filePath,
-                                    description = "Downloaded from ${item.platform} in ${item.quality} quality. Status: ${item.status}.",
+                                    description = cleanDesc,
                                     thumbnail = item.thumbnail,
                                     onPlay = if (item.status == "Completed") { { viewModel.openFile(context, item) } } else null,
                                     onShare = if (item.status == "Completed") { { viewModel.shareFile(context, item) } } else null,
@@ -1379,14 +1387,26 @@ fun CompactDownloadHistoryCard(
 
                 Spacer(Modifier.width(10.dp))
 
-                // Middle Info: Title (1 line) & Subtitle (Platform • Quality • Size)
+                // Middle Info: Title (Line 1), Description (Line 2) & Subtitle (Line 3: Platform • Quality • Size)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.title.ifBlank { item.url },
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    if (!item.description.isNullOrBlank() && item.description != item.title) {
+                        Spacer(Modifier.height(1.dp))
+                        Text(
+                            text = item.description,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
                     Spacer(Modifier.height(2.dp))
 
                     val subtitleText = buildString {

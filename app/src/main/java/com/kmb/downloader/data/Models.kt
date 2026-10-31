@@ -8,6 +8,7 @@ data class DownloadItem(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val url: String,
     val title: String = "Unknown",
+    val description: String? = null,
     val thumbnail: String? = null,
     val platform: String = "Unknown",
     val quality: String = "Best",

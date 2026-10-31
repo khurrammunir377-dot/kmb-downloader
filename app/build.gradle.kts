@@ -13,8 +13,8 @@ android {
         applicationId = "com.kmb.downloader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "3.10.6"
+        versionCode = 27
+        versionName = "3.10.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -92,6 +92,10 @@ dependencies {
     implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta4")
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     implementation("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.1")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-chinese:16.0.1")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-japanese:16.0.1")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition-korean:16.0.1")
+    implementation("com.google.mlkit:translate:17.0.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
