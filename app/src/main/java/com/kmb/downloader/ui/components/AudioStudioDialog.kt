@@ -69,7 +69,7 @@ fun AudioStudioDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val gradient = Brush.horizontalGradient(
-        listOf(Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFFF59E0B))
+        listOf(com.kmb.downloader.ui.theme.KmbPrimary, com.kmb.downloader.ui.theme.KmbSecondary)
     )
 
     AlertDialog(
@@ -113,7 +113,7 @@ fun AudioStudioDialog(
                     }
                 },
                 enabled = !isProcessing,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                colors = ButtonDefaults.buttonColors(containerColor = com.kmb.downloader.ui.theme.KmbPrimary, contentColor = Color(0xFF030A16)),
                 shape = RoundedCornerShape(10.dp)
             ) {
                 if (isProcessing) {
@@ -123,11 +123,11 @@ fun AudioStudioDialog(
                         color = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Extracting...", color = Color.White)
+                    Text("Extracting...", color = Color(0xFF030A16))
                 } else {
                     Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Export Sound", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Export Sound", color = Color(0xFF030A16), fontWeight = FontWeight.Bold)
                 }
             }
         },

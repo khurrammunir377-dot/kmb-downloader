@@ -404,7 +404,7 @@ fun StudioFeatureCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1C2234)
+            containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard
         ),
         border = CardDefaults.outlinedCardBorder()
     ) {
@@ -591,7 +591,7 @@ fun PhotoBgRemoverView(snackbarHostState: SnackbarHostState) {
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF1E222B)),
+                                .background(com.kmb.downloader.ui.theme.DarkSurfaceCard),
                             contentAlignment = Alignment.Center
                         ) {
                             if (resultBitmap != null) {
@@ -620,7 +620,7 @@ fun PhotoBgRemoverView(snackbarHostState: SnackbarHostState) {
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) KmbPrimary.copy(alpha = 0.3f) else Color(0xFF262C3A))
+                                    .background(if (isSelected) KmbPrimary.copy(alpha = 0.3f) else com.kmb.downloader.ui.theme.DarkSurface)
                                     .border(1.dp, if (isSelected) KmbPrimary else Color.Transparent, RoundedCornerShape(8.dp))
                                     .clickable {
                                         selectedBgMode = mode
@@ -679,7 +679,7 @@ fun PhotoBgRemoverView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                     enabled = !isProcessing
                 ) {
                     Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -704,7 +704,7 @@ fun PhotoBgRemoverView(snackbarHostState: SnackbarHostState) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White)
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
@@ -809,7 +809,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222B)),
+                        colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard),
                         border = CardDefaults.outlinedCardBorder()
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
@@ -859,7 +859,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary)
+                            colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16))
                         ) {
                             Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
@@ -877,7 +877,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                             },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                            colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White)
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
@@ -891,7 +891,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF192032)),
+                        colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard),
                         border = CardDefaults.outlinedCardBorder()
                     ) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -948,7 +948,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                                colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                                 enabled = !isTranslating
                             ) {
                                 Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -977,7 +977,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                                    colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White)
                                 ) {
                                     Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
@@ -1049,7 +1049,7 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) KmbPrimary.copy(alpha = 0.35f) else Color(0xFF262C3A))
+                                .background(if (isSelected) KmbPrimary.copy(alpha = 0.35f) else com.kmb.downloader.ui.theme.DarkSurface)
                                 .border(1.dp, if (isSelected) KmbPrimary else Color.Transparent, RoundedCornerShape(8.dp))
                                 .clickable { selectedRegion = region }
                                 .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -1097,7 +1097,7 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF97316)),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                     enabled = !isProcessing
                 ) {
                     Icon(Icons.Default.Subtitles, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1124,7 +1124,7 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.2f)),
+                        colors = CardDefaults.cardColors(containerColor = KmbPrimary.copy(alpha = 0.15f)),
                         border = CardDefaults.outlinedCardBorder()
                     ) {
                         Row(
@@ -1289,7 +1289,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     onClick = { isMicMode = false },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (!isMicMode) KmbPrimary else Color(0xFF262C3A)
+                        containerColor = if (!isMicMode) KmbPrimary else com.kmb.downloader.ui.theme.DarkSurface
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -1300,7 +1300,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     onClick = { isMicMode = true },
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isMicMode) KmbPrimary else Color(0xFF262C3A)
+                        containerColor = if (isMicMode) KmbPrimary else com.kmb.downloader.ui.theme.DarkSurface
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -1344,7 +1344,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                 onClick = { startRecognition() },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White),
                 enabled = !isTranscribing
             ) {
                 Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1372,7 +1372,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222B)),
+                    colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard),
                     border = CardDefaults.outlinedCardBorder()
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
@@ -1411,7 +1411,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary)
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16))
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
@@ -1429,7 +1429,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White)
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
@@ -1494,7 +1494,7 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF1E222B))
+                    .background(com.kmb.downloader.ui.theme.DarkSurfaceCard)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1590,7 +1590,7 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFF1E222B)),
+                                    .background(com.kmb.downloader.ui.theme.DarkSurfaceCard),
                                 contentAlignment = Alignment.Center
                             ) {
                                 enhancedBitmap?.let { enh ->
@@ -1661,7 +1661,7 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                            colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White)
                         ) {
                             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
@@ -1709,7 +1709,7 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899)),
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                         enabled = !isProcessingVideo
                     ) {
                         Icon(Icons.Default.HighQuality, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1736,7 +1736,7 @@ fun MediaEnhancerView(snackbarHostState: SnackbarHostState) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.2f)),
+                            colors = CardDefaults.cardColors(containerColor = KmbPrimary.copy(alpha = 0.15f)),
                             border = CardDefaults.outlinedCardBorder()
                         ) {
                             Row(
@@ -1825,7 +1825,7 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                                 .fillMaxWidth()
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF1E222B)),
+                                .background(com.kmb.downloader.ui.theme.DarkSurfaceCard),
                             contentAlignment = Alignment.Center
                         ) {
                             if (resultBitmap != null) {
@@ -1880,7 +1880,7 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                     enabled = !isDetecting && !isErasing
                 ) {
                     Icon(Icons.Default.CleaningServices, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1911,7 +1911,7 @@ fun PhotoTextEraserView(snackbarHostState: SnackbarHostState) {
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                        colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White)
                     ) {
                         Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
@@ -1966,7 +1966,7 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2433)),
+                    colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard),
                     border = CardDefaults.outlinedCardBorder()
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
@@ -2008,7 +2008,7 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                     enabled = !isProcessing
                 ) {
                     Icon(Icons.Default.Movie, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -2035,7 +2035,7 @@ fun VideoDelogoView(snackbarHostState: SnackbarHostState) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.2f)),
+                        colors = CardDefaults.cardColors(containerColor = KmbPrimary.copy(alpha = 0.15f)),
                         border = CardDefaults.outlinedCardBorder()
                     ) {
                         Row(
@@ -2198,7 +2198,7 @@ fun AudioStudioToolView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                     enabled = !isProcessing
                 ) {
                     Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -2331,7 +2331,7 @@ fun UniversalTrimmerView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White),
                     enabled = !isProcessing
                 ) {
                     Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -2409,7 +2409,7 @@ fun ShortsReframeView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF43F5E)),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                     enabled = !isProcessing
                 ) {
                     Icon(Icons.Default.CropPortrait, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -2431,7 +2431,7 @@ private fun PositionButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) KmbPrimary.copy(alpha = 0.35f) else Color(0xFF262C3A))
+            .background(if (selected) KmbPrimary.copy(alpha = 0.35f) else com.kmb.downloader.ui.theme.DarkSurface)
             .border(1.dp, if (selected) KmbPrimary else Color.Transparent, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp, horizontal = 12.dp),
@@ -2535,7 +2535,7 @@ fun VideoClipperView(snackbarHostState: SnackbarHostState) {
                         onClick = { startTime = "00:00"; endTime = "00:15" },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262C3A))
+                        colors = ButtonDefaults.buttonColors(containerColor = com.kmb.downloader.ui.theme.DarkSurface)
                     ) {
                         Text("15s Story", fontSize = 11.sp, color = Color.White)
                     }
@@ -2553,7 +2553,7 @@ fun VideoClipperView(snackbarHostState: SnackbarHostState) {
                         onClick = { startTime = "00:00"; endTime = "01:00" },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF262C3A))
+                        colors = ButtonDefaults.buttonColors(containerColor = com.kmb.downloader.ui.theme.DarkSurface)
                     ) {
                         Text("60s Reel", fontSize = 11.sp, color = Color.White)
                     }
@@ -2608,7 +2608,7 @@ fun VideoClipperView(snackbarHostState: SnackbarHostState) {
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
                     enabled = !isProcessing
                 ) {
                     Icon(Icons.Default.ContentCut, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -2622,7 +2622,7 @@ fun VideoClipperView(snackbarHostState: SnackbarHostState) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.2f)),
+                        colors = CardDefaults.cardColors(containerColor = KmbPrimary.copy(alpha = 0.15f)),
                         border = CardDefaults.outlinedCardBorder()
                     ) {
                         Row(

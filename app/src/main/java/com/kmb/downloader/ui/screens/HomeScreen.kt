@@ -716,7 +716,7 @@ fun HomeScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(9.dp))
                             .then(
-                                if (selectedMediaTab == 0) Modifier.background(Brush.horizontalGradient(listOf(KmbPrimary, KmbPrimaryLight)))
+                                if (selectedMediaTab == 0) Modifier.background(Brush.horizontalGradient(listOf(KmbPrimary, KmbSecondary)))
                                 else Modifier.background(Color.Transparent)
                             )
                             .clickable { selectedMediaTab = 0 }
@@ -727,14 +727,14 @@ fun HomeScreen(
                             Icon(
                                 Icons.Rounded.Bookmark,
                                 contentDescription = null,
-                                tint = if (selectedMediaTab == 0) Color.White else Color(0xFF9CA3AF),
+                                tint = if (selectedMediaTab == 0) Color(0xFF030A16) else Color(0xFF90A4AE),
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 "Saved Links (${savedLinks.size})",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (selectedMediaTab == 0) Color.White else Color(0xFF9CA3AF)
+                                color = if (selectedMediaTab == 0) Color(0xFF030A16) else Color(0xFF90A4AE)
                             )
                         }
                     }
@@ -744,7 +744,7 @@ fun HomeScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(9.dp))
                             .then(
-                                if (selectedMediaTab == 1) Modifier.background(Brush.horizontalGradient(listOf(KmbPrimary, KmbPrimaryLight)))
+                                if (selectedMediaTab == 1) Modifier.background(Brush.horizontalGradient(listOf(KmbPrimary, KmbSecondary)))
                                 else Modifier.background(Color.Transparent)
                             )
                             .clickable { selectedMediaTab = 1 }
@@ -755,14 +755,14 @@ fun HomeScreen(
                             Icon(
                                 Icons.Default.History,
                                 contentDescription = null,
-                                tint = if (selectedMediaTab == 1) Color.White else Color(0xFF9CA3AF),
+                                tint = if (selectedMediaTab == 1) Color(0xFF030A16) else Color(0xFF90A4AE),
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 "Download History (${downloads.size})",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (selectedMediaTab == 1) Color.White else Color(0xFF9CA3AF)
+                                color = if (selectedMediaTab == 1) Color(0xFF030A16) else Color(0xFF90A4AE)
                             )
                         }
                     }
@@ -1001,9 +1001,13 @@ fun HomeScreen(
                             viewModel.trimExistingDownload(target, startTimeInput, endTimeInput)
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = KmbPrimary,
+                        contentColor = Color(0xFF030A16)
+                    ),
+                    shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Trim & Save", color = Color.White)
+                    Text("Trim & Save", fontWeight = FontWeight.Bold, color = Color(0xFF030A16))
                 }
             },
             dismissButton = {
@@ -1743,12 +1747,15 @@ fun MediaDetailsDialog(
                             onDismiss()
                             info.onDownload.invoke()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = KmbPrimary,
+                            contentColor = Color(0xFF030A16)
+                        ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Download, contentDescription = null, tint = Color(0xFF030A16), modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Download", color = Color.White, fontSize = 12.sp)
+                        Text("Download", color = Color(0xFF030A16), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
                 TextButton(onClick = onDismiss) {

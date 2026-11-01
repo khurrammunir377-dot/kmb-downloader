@@ -13,8 +13,8 @@ android {
         applicationId = "com.kmb.downloader"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "4.0.0"
+        versionCode = 29
+        versionName = "4.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

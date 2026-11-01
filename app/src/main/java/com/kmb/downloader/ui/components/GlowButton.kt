@@ -27,9 +27,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kmb.downloader.ui.theme.KmbGlow
 import com.kmb.downloader.ui.theme.KmbPrimary
 import com.kmb.downloader.ui.theme.KmbPrimaryLight
+import com.kmb.downloader.ui.theme.KmbSecondary
 
 @Composable
 fun GlowButton(
@@ -79,18 +81,25 @@ fun GlowButton(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
-                .clip(RoundedCornerShape(18.dp)),
+                .clip(RoundedCornerShape(18.dp))
+                .background(
+                    if (enabled) Brush.horizontalGradient(listOf(KmbPrimary, KmbSecondary))
+                    else Brush.horizontalGradient(listOf(KmbPrimary.copy(alpha = 0.35f), KmbSecondary.copy(alpha = 0.35f)))
+                ),
             shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = KmbPrimary,
-                disabledContainerColor = KmbPrimary.copy(alpha = 0.4f)
+                containerColor = Color.Transparent,
+                disabledContainerColor = Color.Transparent
             ),
             contentPadding = PaddingValues(horizontal = 24.dp)
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp
+                ),
+                color = if (enabled) Color(0xFF030A16) else Color.White.copy(alpha = 0.6f)
             )
         }
     }

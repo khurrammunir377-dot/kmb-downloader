@@ -639,7 +639,7 @@ fun VipProScreen() {
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                    colors = ButtonDefaults.buttonColors(containerColor = com.kmb.downloader.ui.theme.KmbPrimary, contentColor = Color(0xFF030A16)),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(if (isCreatingNewPin) "Save & Open" else "Unlock", color = Color.White, fontWeight = FontWeight.Bold)
@@ -661,7 +661,7 @@ fun VipProScreen() {
         ) {
             Scaffold(
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                containerColor = Color(0xFF0F121C),
+                containerColor = com.kmb.downloader.ui.theme.DarkBackground,
                 topBar = {
                     TopAppBar(
                         title = {
@@ -688,13 +688,13 @@ fun VipProScreen() {
                                 Icon(Icons.Default.Lock, contentDescription = "Change PIN", tint = Color(0xFF818CF8))
                             }
                         },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF131722))
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = com.kmb.downloader.ui.theme.DarkSurface)
                     )
                 },
                 floatingActionButton = {
                     Button(
                         onClick = { filePickerLauncher.launch("*/*") },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                        colors = ButtonDefaults.buttonColors(containerColor = com.kmb.downloader.ui.theme.KmbPrimary, contentColor = Color(0xFF030A16)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
@@ -801,7 +801,7 @@ private fun VaultFileCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222B))
+        colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
