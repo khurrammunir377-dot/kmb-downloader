@@ -635,7 +635,12 @@ fun VipProScreen() {
                                 refreshVault()
                                 showVaultBrowser = true
                             } else {
-                                vaultPinError = "Incorrect PIN. Try again."
+                                val lockoutSec = VaultManager.getLockoutRemainingSeconds(context)
+                                vaultPinError = if (lockoutSec > 0) {
+                                    "Too many failed attempts! Locked for " + lockoutSec + "s."
+                                } else {
+                                    "Incorrect PIN. Try again."
+                                }
                             }
                         }
                     },
