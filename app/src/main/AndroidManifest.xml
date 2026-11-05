@@ -19,6 +19,9 @@
     <queries>
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
     </queries>
 
     <application
@@ -36,6 +39,10 @@
         android:largeHeap="true"
         android:extractNativeLibs="true"
         tools:targetApi="35">
+
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="ocr,ocr_chinese,ocr_devanagari,ocr_japanese,ocr_korean" />
 
         <activity
             android:name=".MainActivity"
@@ -57,6 +64,11 @@
 
         <service
             android:name=".download.DownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".download.ClipboardMonitorService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

@@ -24,7 +24,8 @@ import kotlin.coroutines.resumeWithException
 data class OcrResult(
     val fullText: String,
     val blockCount: Int,
-    val lineCount: Int
+    val lineCount: Int,
+    val detectedLanguage: String = "en"
 )
 
 data class TranslationLanguage(
@@ -32,8 +33,23 @@ data class TranslationLanguage(
     val displayName: String
 )
 
+data class OcrScriptOption(
+    val id: String,
+    val displayName: String,
+    val description: String
+)
+
 object PhotoOcrHelper {
     private const val TAG = "PhotoOcrHelper"
+
+    val SCRIPT_OPTIONS = listOf(
+        OcrScriptOption("auto", "Auto (All Scripts)", "Scans Hindi, English, Urdu, Chinese, Japanese, Korean"),
+        OcrScriptOption("devanagari", "Hindi / Devanagari (हिन्दी)", "Devanagari: Hindi, Nepali, Marathi"),
+        OcrScriptOption("latin", "English / Latin", "English, Spanish, French, German, Roman Urdu"),
+        OcrScriptOption("chinese", "Chinese (中文)", "Simplified and Traditional Chinese characters"),
+        OcrScriptOption("japanese", "Japanese (日本語)", "Kanji, Hiragana, Katakana"),
+        OcrScriptOption("korean", "Korean (한국어)", "Hangul characters")
+    )
 
     val TRANSLATION_LANGUAGES = listOf(
         TranslationLanguage(TranslateLanguage.ENGLISH, "English"),
@@ -53,23 +69,66 @@ object PhotoOcrHelper {
     )
 
     /**
-     * Extracts all text (Latin, Devanagari, Chinese, Japanese, Korean) from a bitmap.
+     * Inspects Unicode character blocks to detect the primary script / language
+     * of the extracted text.
+     */
+    fun detectSourceLanguage(text: String): String {
+        var devanagariCount = 0
+        var arabicCount = 0
+        var cjkCount = 0
+        var hangulCount = 0
+        var latinCount = 0
+
+        for (ch in text) {
+            val code = ch.code
+            when {
+                code in 0x0900..0x097F -> devanagariCount++
+                code in 0x0600..0x06FF || code in 0x0750..0x077F || code in 0xFB50..0xFDFF || code in 0xFE70..0xFEFF -> arabicCount++
+                code in 0x4E00..0x9FFF || code in 0x3400..0x4DBF -> cjkCount++
+                code in 0xAC00..0xD7AF || code in 0x1100..0x11FF -> hangulCount++
+                code in 0x0041..0x005A || code in 0x0061..0x007A -> latinCount++
+            }
+        }
+
+        val max = maxOf(devanagariCount, arabicCount, cjkCount, hangulCount, latinCount)
+        return when {
+            max == 0 -> TranslateLanguage.ENGLISH
+            max == devanagariCount -> TranslateLanguage.HINDI
+            max == arabicCount -> TranslateLanguage.URDU
+            max == cjkCount -> TranslateLanguage.CHINESE
+            max == hangulCount -> TranslateLanguage.KOREAN
+            else -> TranslateLanguage.ENGLISH
+        }
+    }
+
+    /**
+     * Extracts text from bitmap with support for all major scripts:
+     * Devanagari (Hindi, Nepali, Marathi), Latin (English, Urdu), Chinese, Japanese, Korean.
      */
     suspend fun recognizeText(
         context: Context,
-        bitmap: Bitmap
+        bitmap: Bitmap,
+        scriptId: String = "auto"
     ): Result<OcrResult> = withContext(Dispatchers.Default) {
         try {
             val image = InputImage.fromBitmap(bitmap, 0)
             val combinedLines = linkedSetOf<String>()
             var blockCount = 0
+            var downloadPendingError: String? = null
 
             suspend fun runRecognizer(recognizer: com.google.mlkit.vision.text.TextRecognizer) {
                 try {
                     val result: Text? = suspendCancellableCoroutine { continuation ->
                         recognizer.process(image)
                             .addOnSuccessListener { continuation.resume(it) }
-                            .addOnFailureListener { continuation.resume(null) }
+                            .addOnFailureListener { e ->
+                                val msg = e.message ?: ""
+                                if (msg.contains("Waiting for the", ignoreCase = true) || msg.contains("download", ignoreCase = true)) {
+                                    downloadPendingError = "Google Play Services is downloading OCR model. Please ensure Wi-Fi/data is active and retry in 10s."
+                                }
+                                Log.w(TAG, "Recognizer error: $msg")
+                                continuation.resume(null)
+                            }
                     }
                     result?.let { res ->
                         blockCount += res.textBlocks.size
@@ -80,42 +139,79 @@ object PhotoOcrHelper {
                             }
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    Log.w(TAG, "runRecognizer exception: ${e.message}")
+                }
             }
 
-            // 1. Devanagari (Hindi, Nepali, Marathi, Sanskrit)
-            val devanagariRecognizer = TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
-            runRecognizer(devanagariRecognizer)
+            when (scriptId) {
+                "devanagari" -> {
+                    val devanagariRecognizer = TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
+                    runRecognizer(devanagariRecognizer)
+                    // Fallback to latin for numbers and brand names
+                    val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    runRecognizer(latinRecognizer)
+                }
+                "latin" -> {
+                    val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    runRecognizer(latinRecognizer)
+                }
+                "chinese" -> {
+                    val chineseRecognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+                    runRecognizer(chineseRecognizer)
+                    val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    runRecognizer(latinRecognizer)
+                }
+                "japanese" -> {
+                    val japaneseRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+                    runRecognizer(japaneseRecognizer)
+                    val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    runRecognizer(latinRecognizer)
+                }
+                "korean" -> {
+                    val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+                    runRecognizer(koreanRecognizer)
+                    val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    runRecognizer(latinRecognizer)
+                }
+                else -> {
+                    // Auto: Run Devanagari first (Hindi/Nepali), then Latin, then East Asian
+                    val devanagariRecognizer = TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
+                    runRecognizer(devanagariRecognizer)
 
-            // 2. Latin (English, Urdu transliterated, numbers, usernames)
-            val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            runRecognizer(latinRecognizer)
+                    val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    runRecognizer(latinRecognizer)
 
-            // 3. Chinese
-            try {
-                val chineseRecognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-                runRecognizer(chineseRecognizer)
-            } catch (_: Exception) {}
+                    try {
+                        val chineseRecognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+                        runRecognizer(chineseRecognizer)
+                    } catch (_: Exception) {}
 
-            // 4. Japanese
-            try {
-                val japaneseRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-                runRecognizer(japaneseRecognizer)
-            } catch (_: Exception) {}
+                    try {
+                        val japaneseRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+                        runRecognizer(japaneseRecognizer)
+                    } catch (_: Exception) {}
 
-            // 5. Korean
-            try {
-                val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
-                runRecognizer(koreanRecognizer)
-            } catch (_: Exception) {}
+                    try {
+                        val koreanRecognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+                        runRecognizer(koreanRecognizer)
+                    } catch (_: Exception) {}
+                }
+            }
 
             val fullText = combinedLines.joinToString("\n")
+            if (fullText.isBlank() && downloadPendingError != null) {
+                return@withContext Result.failure(Exception(downloadPendingError))
+            }
+
+            val detectedLang = detectSourceLanguage(fullText)
 
             Result.success(
                 OcrResult(
                     fullText = fullText,
                     blockCount = blockCount,
-                    lineCount = combinedLines.size
+                    lineCount = combinedLines.size,
+                    detectedLanguage = detectedLang
                 )
             )
         } catch (e: Exception) {
@@ -126,16 +222,25 @@ object PhotoOcrHelper {
 
     /**
      * Translates text to the selected target language using on-device ML Kit Translation.
+     * Automatically handles source language detection if not specified.
      */
     suspend fun translateText(
         text: String,
         targetLanguageCode: String,
-        sourceLanguageCode: String = TranslateLanguage.ENGLISH
+        sourceLanguageCode: String? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         if (text.isBlank()) return@withContext Result.success("")
+
+        val resolvedSource = sourceLanguageCode ?: detectSourceLanguage(text)
+
+        // If source and target are identical, return the original text directly
+        if (resolvedSource.equals(targetLanguageCode, ignoreCase = true)) {
+            return@withContext Result.success(text)
+        }
+
         try {
             val options = TranslatorOptions.Builder()
-                .setSourceLanguage(sourceLanguageCode)
+                .setSourceLanguage(resolvedSource)
                 .setTargetLanguage(targetLanguageCode)
                 .build()
 
@@ -154,7 +259,7 @@ object PhotoOcrHelper {
             }
             Result.success(translated)
         } catch (e: Exception) {
-            Log.w(TAG, "Translation error: ${e.message}")
+            Log.w(TAG, "Translation error from $resolvedSource to $targetLanguageCode: ${e.message}")
             Result.failure(e)
         }
     }

@@ -10,7 +10,9 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import androidx.compose.material.icons.filled.Mic
 import android.widget.Toast
 import android.Manifest
 import android.content.pm.PackageManager
@@ -729,8 +731,31 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
     var translatedText by remember { mutableStateOf("") }
     var isScanning by remember { mutableStateOf(false) }
     var isTranslating by remember { mutableStateOf(false) }
-    var selectedTargetLang by remember { mutableStateOf(PhotoOcrHelper.TRANSLATION_LANGUAGES[1]) }
+    var selectedScript by remember { mutableStateOf(PhotoOcrHelper.SCRIPT_OPTIONS[0]) }
+    var showScriptMenu by remember { mutableStateOf(false) }
+    var detectedLangCode by remember { mutableStateOf("en") }
+    var selectedTargetLang by remember { mutableStateOf(PhotoOcrHelper.TRANSLATION_LANGUAGES[0]) }
     var showLangMenu by remember { mutableStateOf(false) }
+
+    fun runScan(bmp: Bitmap, scriptId: String) {
+        scope.launch {
+            isScanning = true
+            val ocrRes = PhotoOcrHelper.recognizeText(context, bmp, scriptId)
+            isScanning = false
+            ocrRes.fold(
+                onSuccess = { res ->
+                    extractedText = res.fullText
+                    detectedLangCode = res.detectedLanguage
+                    if (res.fullText.isBlank()) {
+                        Toast.makeText(context, "No text detected with " + selectedScript.displayName + ". Try another script filter.", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onFailure = { err ->
+                    Toast.makeText(context, "OCR: " + err.message, Toast.LENGTH_LONG).show()
+                }
+            )
+        }
+    }
 
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -741,20 +766,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                 extractedText = ""
                 translatedText = ""
                 photoBitmap?.let { bmp ->
-                    isScanning = true
-                    val ocrRes = PhotoOcrHelper.recognizeText(context, bmp)
-                    isScanning = false
-                    ocrRes.fold(
-                        onSuccess = { res ->
-                            extractedText = res.fullText
-                            if (res.fullText.isBlank()) {
-                                Toast.makeText(context, "No text detected in this image.", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        onFailure = { err ->
-                            Toast.makeText(context, "OCR Error: ${err.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                    runScan(bmp, selectedScript.id)
                 }
             }
         }
@@ -775,6 +787,70 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                 hasMedia = photoBitmap != null,
                 onClick = { photoPicker.launch("image/*") }
             )
+        }
+
+        // Script filter selector
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard),
+                border = CardDefaults.outlinedCardBorder()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "OCR SCRIPT FILTER",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = KmbPrimary
+                        )
+                        Text(
+                            selectedScript.displayName,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF38BDF8)
+                        )
+                    }
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { showScriptMenu = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Language Script: " + selectedScript.displayName, color = Color.White)
+                        }
+
+                        DropdownMenu(
+                            expanded = showScriptMenu,
+                            onDismissRequest = { showScriptMenu = false }
+                        ) {
+                            PhotoOcrHelper.SCRIPT_OPTIONS.forEach { opt ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(opt.displayName, fontWeight = FontWeight.Bold)
+                                            Text(opt.description, fontSize = 11.sp, color = Color.Gray)
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedScript = opt
+                                        showScriptMenu = false
+                                        photoBitmap?.let { bmp -> runScan(bmp, opt.id) }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         photoBitmap?.let { bmp ->
@@ -799,7 +875,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                     ) {
                         CircularProgressIndicator(color = KmbSecondary, modifier = Modifier.size(24.dp))
                         Spacer(Modifier.width(10.dp))
-                        Text("Extracting all language text via Google ML Kit...", color = Color.White, fontSize = 13.sp)
+                        Text("Extracting " + selectedScript.displayName + " via Google ML Kit...", color = Color.White, fontSize = 13.sp)
                     }
                 }
             }
@@ -819,13 +895,13 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    "EXTRACTED TEXT",
+                                    "EXTRACTED TEXT (" + detectedLangCode.uppercase() + ")",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = KmbSecondary
                                 )
                                 Text(
-                                    "${extractedText.length} characters",
+                                    "" + extractedText.length + " characters",
                                     fontSize = 11.sp,
                                     color = Color.Gray
                                 )
@@ -910,7 +986,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                                 ) {
                                     Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Translate to: ${selectedTargetLang.displayName}", color = Color.White)
+                                    Text("Translate to: " + selectedTargetLang.displayName, color = Color.White)
                                 }
 
                                 DropdownMenu(
@@ -941,7 +1017,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                                                 Toast.makeText(context, "Translation complete ✓", Toast.LENGTH_SHORT).show()
                                             },
                                             onFailure = {
-                                                Toast.makeText(context, "Translation error: ${it.message}", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "Translation error: " + it.message, Toast.LENGTH_SHORT).show()
                                             }
                                         )
                                     }
@@ -953,7 +1029,7 @@ fun PhotoOcrView(snackbarHostState: SnackbarHostState) {
                             ) {
                                 Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text(if (isTranslating) "Translating..." else "🌐 Translate to ${selectedTargetLang.displayName}")
+                                Text(if (isTranslating) "Translating..." else "🌐 Translate to " + selectedTargetLang.displayName)
                             }
 
                             if (translatedText.isNotBlank()) {
@@ -1143,7 +1219,7 @@ fun VideoTextEraserView(snackbarHostState: SnackbarHostState) {
 }
 
 /**
- * Tool 3: Video to Text (Real-time Speech Recognition & Video Transcription)
+ * Tool 3: Video to Text (Real-time Speech Recognition, Video Audio Transcription & Google Voice Input)
  */
 @Composable
 fun VideoToTextView(snackbarHostState: SnackbarHostState) {
@@ -1153,9 +1229,15 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
     var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
     var selectedLang by remember { mutableStateOf(SpeechTranscriberHelper.AVAILABLE_LANGUAGES[0]) }
     var transcriptText by remember { mutableStateOf("") }
+    var translatedText by remember { mutableStateOf("") }
     var isTranscribing by remember { mutableStateOf(false) }
+    var isTranslating by remember { mutableStateOf(false) }
+    var isPlayingAudio by remember { mutableStateOf(false) }
     var showLangMenu by remember { mutableStateOf(false) }
+    var showTargetLangMenu by remember { mutableStateOf(false) }
+    var selectedTargetLang by remember { mutableStateOf(PhotoOcrHelper.TRANSLATION_LANGUAGES[0]) }
     var isMicMode by remember { mutableStateOf(false) }
+    var player by remember { mutableStateOf<MediaPlayer?>(null) }
 
     var hasAudioPermission by remember {
         mutableStateOf(
@@ -1172,47 +1254,50 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
         }
     }
 
-    val mediaPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            selectedMediaUri = it
-            transcriptText = ""
+    // Google Voice Input Dialog Launcher (100% Reliable Android Voice Recognizer)
+    val speechDialogLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val text = matches?.firstOrNull() ?: ""
+            if (text.isNotBlank()) {
+                transcriptText = if (transcriptText.isBlank()) text else transcriptText + "\n" + text
+                Toast.makeText(context, "Speech transcribed successfully! ✓", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
-    fun startRecognition() {
+    fun launchGoogleVoiceDialog() {
+        if (!hasAudioPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        try {
+            val intent = SpeechTranscriberHelper.createRecognizerIntent(
+                selectedLang.code,
+                prompt = "Listening in " + selectedLang.displayName + "..."
+            )
+            speechDialogLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Voice input dialog: " + e.message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun startListening() {
         if (!hasAudioPermission) {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
 
         if (!SpeechTranscriberHelper.isRecognitionAvailable(context)) {
-            Toast.makeText(context, "Speech recognition is not supported or enabled on this device.", Toast.LENGTH_LONG).show()
+            launchGoogleVoiceDialog()
             return
         }
 
         isTranscribing = true
         val mainHandler = Handler(Looper.getMainLooper())
         mainHandler.post {
-            var player: MediaPlayer? = null
-            if (!isMicMode && selectedMediaUri != null) {
-                try {
-                    player = MediaPlayer().apply {
-                        setDataSource(context, selectedMediaUri!!)
-                        prepare()
-                        start()
-                    }
-                } catch (_: Exception) {}
-            }
-
-            val cleanup = {
-                try {
-                    if (player?.isPlaying == true) player.stop()
-                    player?.release()
-                } catch (_: Exception) {}
-            }
-
             try {
                 val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
                 val intent = SpeechTranscriberHelper.createRecognizerIntent(selectedLang.code)
@@ -1223,25 +1308,24 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     override fun onBufferReceived(buffer: ByteArray?) {}
                     override fun onEndOfSpeech() {
                         isTranscribing = false
-                        cleanup()
                     }
                     override fun onError(error: Int) {
                         isTranscribing = false
-                        cleanup()
                         val msg = when (error) {
-                            SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized. Speak closer or increase volume."
+                            SpeechRecognizer.ERROR_NO_MATCH -> "No speech recognized. Speak closer or use Google Voice Input."
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech input timed out."
                             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Microphone permission required."
-                            else -> "Recognition stopped (code $error)."
+                            else -> "Recognition stopped (code " + error + "). Tap Google Voice Input below."
                         }
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                     }
                     override fun onResults(results: Bundle?) {
                         isTranscribing = false
-                        cleanup()
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull() ?: ""
-                        if (text.isNotBlank()) transcriptText = text
+                        if (text.isNotBlank()) {
+                            transcriptText = if (transcriptText.isBlank()) text else transcriptText + "\n" + text
+                        }
                     }
                     override fun onPartialResults(partialResults: Bundle?) {
                         val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -1252,9 +1336,24 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                 recognizer.startListening(intent)
             } catch (e: Exception) {
                 isTranscribing = false
-                cleanup()
-                Toast.makeText(context, "Could not start recognizer: ${e.message}", Toast.LENGTH_SHORT).show()
+                launchGoogleVoiceDialog()
             }
+        }
+    }
+
+    val mediaPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            selectedMediaUri = it
+            transcriptText = ""
+            translatedText = ""
+            try {
+                player?.stop()
+                player?.release()
+                player = null
+                isPlayingAudio = false
+            } catch (_: Exception) {}
         }
     }
 
@@ -1267,14 +1366,12 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
         item {
             CenteredCircularMediaPicker(
                 icon = Icons.Default.Translate,
-                title = if (isMicMode) "Microphone Mode" else "Select Video or Audio",
-                subtitle = if (isMicMode) "Tap transcribe to speak live" else "Transcribes speech in English, Urdu, Hindi, Arabic & more",
+                title = if (isMicMode) "Live Microphone Mode" else "Select Video or Audio",
+                subtitle = if (isMicMode) "Transcribe voice live via Google Speech" else "Transcribes speech in English, Urdu, Hindi, Arabic, Chinese & more",
                 gradient = listOf(Color(0xFF10B981), Color(0xFF3B82F6)),
                 hasMedia = selectedMediaUri != null || isMicMode,
                 onClick = {
-                    if (isMicMode) {
-                        isMicMode = false
-                    }
+                    if (isMicMode) isMicMode = false
                     mediaPicker.launch("video/*")
                 }
             )
@@ -1293,7 +1390,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("🎬 Video File", color = Color.White)
+                    Text("🎬 Video File", color = if (!isMicMode) Color(0xFF030A16) else Color.White, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -1304,13 +1401,13 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("🎙️ Live Mic", color = Color.White)
+                    Text("🎙️ Live Speech", color = if (isMicMode) Color(0xFF030A16) else Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
+        // Language Selector Dropdown
         item {
-            // Language Selector Dropdown
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedButton(
                     onClick = { showLangMenu = true },
@@ -1319,7 +1416,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                 ) {
                     Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Spoken Language: ${selectedLang.displayName}", color = Color.White)
+                    Text("Speech Language: " + selectedLang.displayName, color = Color.White)
                 }
 
                 DropdownMenu(
@@ -1339,17 +1436,84 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
             }
         }
 
+        // If video file is chosen, show playback control
+        if (!isMicMode && selectedMediaUri != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard),
+                    border = CardDefaults.outlinedCardBorder()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Loaded Video Audio", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                            Text("Play audio while transcribing speech", fontSize = 11.sp, color = Color.Gray)
+                        }
+
+                        Button(
+                            onClick = {
+                                if (isPlayingAudio) {
+                                    player?.pause()
+                                    isPlayingAudio = false
+                                } else {
+                                    try {
+                                        if (player == null) {
+                                            player = MediaPlayer().apply {
+                                                setDataSource(context, selectedMediaUri!!)
+                                                prepare()
+                                                setOnCompletionListener { isPlayingAudio = false }
+                                            }
+                                        }
+                                        player?.start()
+                                        isPlayingAudio = true
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Cannot play audio: " + e.message, Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isPlayingAudio) Color(0xFFEF4444) else KmbSecondary
+                            )
+                        ) {
+                            Text(if (isPlayingAudio) "⏸ Pause Audio" else "▶ Play Audio")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Two reliable transcription action buttons
         item {
-            Button(
-                onClick = { startRecognition() },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White),
-                enabled = !isTranscribing
-            ) {
-                Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(if (isTranscribing) "Listening & Transcribing..." else "🎙 Transcribe Speech to Text")
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Primary: Google Voice Input Dialog (Works 100% on all Android versions)
+                Button(
+                    onClick = { launchGoogleVoiceDialog() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16))
+                ) {
+                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("🎙️ Google Voice Transcribe (" + selectedLang.displayName + ")", fontWeight = FontWeight.Bold)
+                }
+
+                // Secondary: Live In-App Listener
+                OutlinedButton(
+                    onClick = { startListening() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    enabled = !isTranscribing
+                ) {
+                    Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (isTranscribing) "Listening & Transcribing..." else "Live Speech Listener", color = Color.White)
+                }
             }
         }
 
@@ -1362,7 +1526,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                 ) {
                     CircularProgressIndicator(color = Color(0xFF10B981), modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Listening in ${selectedLang.displayName}...", color = Color.White, fontSize = 12.sp)
+                    Text("Listening in " + selectedLang.displayName + "...", color = Color.White, fontSize = 12.sp)
                 }
             }
         }
@@ -1376,12 +1540,23 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     border = CardDefaults.outlinedCardBorder()
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
-                        Text(
-                            "TRANSCRIBED TEXT",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF10B981)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "TRANSCRIBED TEXT",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF10B981)
+                            )
+                            Text(
+                                "" + transcriptText.length + " characters",
+                                fontSize = 11.sp,
+                                color = Color.Gray
+                            )
+                        }
                         Spacer(Modifier.height(8.dp))
                         OutlinedTextField(
                             value = transcriptText,
@@ -1415,7 +1590,7 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Copy Text")
+                        Text("Copy Text", fontWeight = FontWeight.Bold)
                     }
 
                     Button(
@@ -1433,7 +1608,109 @@ fun VideoToTextView(snackbarHostState: SnackbarHostState) {
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Share")
+                        Text("Share", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Translation for Speech Transcript
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = com.kmb.downloader.ui.theme.DarkSurfaceCard),
+                    border = CardDefaults.outlinedCardBorder()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "TRANSLATE TRANSCRIPT",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF38BDF8)
+                        )
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { showTargetLangMenu = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Translate to: " + selectedTargetLang.displayName, color = Color.White)
+                            }
+
+                            DropdownMenu(
+                                expanded = showTargetLangMenu,
+                                onDismissRequest = { showTargetLangMenu = false }
+                            ) {
+                                PhotoOcrHelper.TRANSLATION_LANGUAGES.forEach { lang ->
+                                    DropdownMenuItem(
+                                        text = { Text(lang.displayName) },
+                                        onClick = {
+                                            selectedTargetLang = lang
+                                            showTargetLangMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                isTranslating = true
+                                scope.launch {
+                                    val res = PhotoOcrHelper.translateText(transcriptText, selectedTargetLang.code)
+                                    isTranslating = false
+                                    res.fold(
+                                        onSuccess = {
+                                            translatedText = it
+                                            Toast.makeText(context, "Translation complete ✓", Toast.LENGTH_SHORT).show()
+                                        },
+                                        onFailure = {
+                                            Toast.makeText(context, "Translation error: " + it.message, Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = KmbPrimary, contentColor = Color(0xFF030A16)),
+                            enabled = !isTranslating
+                        ) {
+                            Icon(Icons.Default.Translate, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (isTranslating) "Translating..." else "🌐 Translate to " + selectedTargetLang.displayName)
+                        }
+
+                        if (translatedText.isNotBlank()) {
+                            OutlinedTextField(
+                                value = translatedText,
+                                onValueChange = { translatedText = it },
+                                modifier = Modifier.fillMaxWidth().height(140.dp),
+                                textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF38BDF8),
+                                    unfocusedBorderColor = Color(0xFF374151)
+                                )
+                            )
+
+                            Button(
+                                onClick = {
+                                    val clip = ClipData.newPlainText("Translated Transcript", translatedText)
+                                    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                    cm?.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Translation copied! 📋", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = KmbSecondary, contentColor = Color.White)
+                            ) {
+                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Copy Translation")
+                            }
+                        }
                     }
                 }
             }

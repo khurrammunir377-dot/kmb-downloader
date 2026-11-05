@@ -46,6 +46,19 @@ object DownloadHelper {
         return SOCIAL_PATTERNS.any { lower.contains(it) }
     }
 
+    /**
+     * Checks if a URL is a valid downloadable web link (social media, video host, or any media page).
+     */
+    fun isDownloadableLink(text: String): Boolean {
+        val lower = text.lowercase().trim()
+        if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false
+        if (!lower.contains(".")) return false
+        val staticNonMedia = listOf(".png", ".jpg", ".jpeg", ".webp", ".svg", ".css", ".js", ".json", ".xml")
+        val pathWithoutQuery = lower.substringBefore("?").substringBefore("#")
+        if (staticNonMedia.any { pathWithoutQuery.endsWith(it) }) return false
+        return true
+    }
+
     /** Fast URL extraction with regex on bounded input to prevent UI freezes */
     fun extractUrl(text: String): String? {
         val sample = text.take(2048).trim()

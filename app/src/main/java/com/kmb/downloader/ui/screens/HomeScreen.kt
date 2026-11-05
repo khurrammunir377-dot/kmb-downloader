@@ -1265,7 +1265,11 @@ fun CompactSavedLinkCard(
 
             Spacer(Modifier.width(10.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onClickIcon)
+            ) {
                 Text(
                     text = link.title ?: link.url,
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
@@ -1392,7 +1396,11 @@ fun CompactDownloadHistoryCard(
                 Spacer(Modifier.width(10.dp))
 
                 // Middle Info: Title (Line 1), Description (Line 2) & Subtitle (Line 3: Platform • Quality • Size)
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onClickIcon)
+            ) {
                     Text(
                         text = item.title.ifBlank { item.url },
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),

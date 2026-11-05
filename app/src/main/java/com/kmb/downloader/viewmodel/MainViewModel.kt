@@ -126,7 +126,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val urls = DownloadHelper.extractAllUrls(rawText)
                     for (rawUrl in urls) {
                         val clean = DownloadHelper.cleanUrl(rawUrl)
-                        if (DownloadHelper.isSocialMediaLink(clean)) {
+                        if (DownloadHelper.isDownloadableLink(clean)) {
                             val existing = savedDao.findByUrl(clean)
                             if (existing == null) {
                                 val platform = DownloadHelper.detectPlatform(clean)
@@ -169,7 +169,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     var newCount = 0
                     for (rawUrl in urls) {
                         val clean = DownloadHelper.cleanUrl(rawUrl)
-                        if (DownloadHelper.isSocialMediaLink(clean)) {
+                        if (DownloadHelper.isDownloadableLink(clean)) {
                             val existing = savedDao.findByUrl(clean)
                             if (existing == null) {
                                 val platform = DownloadHelper.detectPlatform(clean)
@@ -237,7 +237,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val text = clip.getItemAt(0)?.coerceToText(getApplication())?.toString()?.trim() ?: ""
                 val detected = DownloadHelper.extractUrl(text)
-                if (detected != null && DownloadHelper.isSocialMediaLink(detected)) {
+                if (detected != null && DownloadHelper.isDownloadableLink(detected)) {
                     val clean = DownloadHelper.cleanUrl(detected)
                     if (savedDao.findByUrl(clean) == null) {
                         val platform = DownloadHelper.detectPlatform(clean)
