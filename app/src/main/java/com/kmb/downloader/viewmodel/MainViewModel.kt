@@ -262,6 +262,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        if (DownloadHelper.isYouTubeLink(currentUrl)) {
+            _message.value = "YouTube downloads are not supported per Google Play Store policies."
+            return
+        }
+
         // Guard: check engine
         if (engineInitState.value != true) {
             _message.value = if (engineInitState.value == null) "Engine loading…" else "Engine failed. Restart app."

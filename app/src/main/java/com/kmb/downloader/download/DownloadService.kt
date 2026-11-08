@@ -107,6 +107,16 @@ class DownloadService : Service() {
         }
 
         serviceScope.launch {
+            if (DownloadHelper.isYouTubeLink(url)) {
+                Log.w(TAG, "Blocked YouTube download request per Google Play policy: $url")
+                updateDbItem(itemId) { it.copy(status = "Failed", fileSize = "YouTube not supported", progress = 0f) }
+                updateNotification(notifId, itemId, "YouTube downloads not supported per Google Play policy", 0, isOngoing = false)
+                DownloadTracker.remove(itemId)
+                if (itemId > 0) activeTasks.remove(itemId)
+                activeJobsCount.decrementAndGet()
+                checkAndStopIfIdle()
+                return@launch
+            }
             val logRingBuffer = java.util.ArrayDeque<String>(40)
             val internalOutputDir = DownloadHelper.getDownloadDir(this@DownloadService)
             var targetUrl: String = url

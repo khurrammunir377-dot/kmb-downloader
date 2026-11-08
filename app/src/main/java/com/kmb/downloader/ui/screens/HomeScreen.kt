@@ -55,6 +55,11 @@ import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -147,6 +152,8 @@ fun HomeScreen(
     var showManualInput by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showYouTubePolicyDialog by remember { mutableStateOf(false) }
+    var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
     var showReferralDialog by remember { mutableStateOf(false) }
     var itemToTrim by remember { mutableStateOf<DownloadItem?>(null) }
     var audioStudioItem by remember { mutableStateOf<DownloadItem?>(null) }
@@ -313,13 +320,13 @@ fun HomeScreen(
                             )
                             HorizontalDivider()
                             DropdownMenuItem(
-                                text = { Text("Update Download Engine") },
+                                text = { Text("Privacy Policy") },
                                 onClick = {
                                     showMenu = false
-                                    viewModel.updateEngine()
+                                    showPrivacyPolicyDialog = true
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = KmbSecondary)
+                                    Icon(Icons.Default.Security, contentDescription = null, tint = KmbSecondary)
                                 }
                             )
                             DropdownMenuItem(
@@ -458,6 +465,10 @@ fun HomeScreen(
                     hasReadyLink = hasReadyLink,
                     platformText = readyPlatform,
                     onClick = {
+                        if (com.kmb.downloader.download.DownloadHelper.isYouTubeLink(url)) {
+                            showYouTubePolicyDialog = true
+                            return@RotatingDownloadOrb
+                        }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             try {
                                 if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -806,7 +817,7 @@ fun HomeScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "No saved links yet.\n\nCopy any YouTube, TikTok, Instagram, Facebook, or X link anywhere on your phone. It will automatically appear here so you can download anytime.",
+                                text = "No saved links yet.\n\nCopy any TikTok, Instagram, Facebook, LinkedIn, or X link anywhere on your phone. It will automatically appear here so you can download anytime.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(14.dp)
@@ -1026,7 +1037,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v3.10.5", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v4.0.4", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -1038,7 +1049,7 @@ fun HomeScreen(
                     )
                     Text(
                         "• All-in-One video and audio downloader\n" +
-                        "• Supports YouTube, Instagram, TikTok, Facebook, X, and 1000+ sites\n" +
+                        "• Supports TikTok, Instagram, Facebook, X, LinkedIn, and 1000+ sites\n" +
                         "• Precision Time-Range Trimming (e.g. 01:50 to 02:55)\n" +
                         "• Full WhatsApp & WhatsApp Business Status Saver\n" +
                         "• Direct phone Gallery MediaStore integration\n" +
@@ -1046,6 +1057,25 @@ fun HomeScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showAboutDialog = false
+                                showPrivacyPolicyDialog = true
+                            }
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Security, contentDescription = null, tint = KmbPrimaryLight, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "View Privacy Policy",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = KmbPrimaryLight
+                        )
+                    }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -1071,6 +1101,94 @@ fun HomeScreen(
             confirmButton = {
                 TextButton(onClick = { showAboutDialog = false }) {
                     Text("OK", fontWeight = FontWeight.Bold, color = KmbPrimary)
+                }
+            }
+        )
+    }
+
+    // YouTube Compliance Dialog
+    if (showYouTubePolicyDialog) {
+        AlertDialog(
+            onDismissRequest = { showYouTubePolicyDialog = false },
+            icon = {
+                Icon(
+                    Icons.Default.Block,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "YouTube Downloads Not Supported",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Text(
+                    text = "In compliance with Google Play Store Policies and YouTube Terms of Service, downloading videos or audio from YouTube is strictly prohibited.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showYouTubePolicyDialog = false }) {
+                    Text("Understood", fontWeight = FontWeight.Bold, color = KmbPrimary)
+                }
+            }
+        )
+    }
+
+    // Privacy Policy Dialog
+    if (showPrivacyPolicyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyPolicyDialog = false },
+            icon = {
+                Icon(
+                    Icons.Default.Security,
+                    contentDescription = null,
+                    tint = KmbSecondary,
+                    modifier = Modifier.size(36.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Privacy Policy",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 350.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Your Privacy Matters",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = KmbPrimaryLight
+                    )
+                    Text(
+                        text = "1. Zero Cloud Data Collection: All video downloads, media trimming, and AI Studio operations (OCR, background removal, voice-to-text transcription) are executed 100% on-device. We never transmit, store, or sell your private media.\n\n" +
+                               "2. Audio & Microphone: Audio recording permission is requested solely when you choose to use the Voice-to-Text transcription tool in AI Studio. No ambient audio is ever recorded or transmitted.\n\n" +
+                               "3. Clipboard Safety: Clipboard access occurs solely while you are actively using the app in the foreground, strictly to detect downloadable media URLs you have chosen to copy.\n\n" +
+                               "4. Storage & Media: Downloaded files are saved directly into your device's standard public Movies, Music, and Downloads folders.\n\n" +
+                               "5. Policy Compliance: In strict accordance with Google Play Store Developer Policies, YouTube downloads are not supported.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacyPolicyDialog = false }) {
+                    Text("Close", fontWeight = FontWeight.Bold, color = KmbPrimary)
                 }
             }
         )

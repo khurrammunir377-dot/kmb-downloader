@@ -12,8 +12,6 @@
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <queries>
@@ -37,7 +35,6 @@
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
         android:largeHeap="true"
-        android:extractNativeLibs="true"
         tools:targetApi="35">
 
         <meta-data
@@ -64,11 +61,6 @@
 
         <service
             android:name=".download.DownloadService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <service
-            android:name=".download.ClipboardMonitorService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

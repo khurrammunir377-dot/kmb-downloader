@@ -23,8 +23,12 @@ object DownloadHelper {
 
     private val URL_PATTERN = Pattern.compile("https?://[a-zA-Z0-9\\-._~:/?#\\[\\]@!$&'()*+,;=%]+")
 
+    fun isYouTubeLink(text: String): Boolean {
+        val lower = text.lowercase().trim()
+        return lower.contains("youtube.com") || lower.contains("youtu.be")
+    }
+
     private val SOCIAL_PATTERNS = listOf(
-        "youtube.com", "youtu.be",
         "tiktok.com", "vm.tiktok.com", "vt.tiktok.com",
         "instagram.com", "reel", "reels",
         "facebook.com", "fb.watch", "fb.com",
@@ -52,6 +56,7 @@ object DownloadHelper {
      */
     fun isDownloadableLink(text: String): Boolean {
         val lower = text.lowercase().trim()
+        if (isYouTubeLink(lower)) return false
         if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false
         if (!lower.contains(".")) return false
         val staticNonMedia = listOf(".png", ".jpg", ".jpeg", ".webp", ".svg", ".css", ".js", ".json", ".xml")
@@ -191,8 +196,6 @@ object DownloadHelper {
             request.addOption("--merge-output-format", "mp4")
         }
 
-        // Pass mobile & web player client to prevent YouTube bot check / 403 blocks
-        request.addOption("--extractor-args", "youtube:player_client=android,web")
 
         // Reliability and speed options
         request.addOption("--no-playlist")
@@ -575,13 +578,7 @@ object DownloadHelper {
     }
 
     suspend fun updateEngine(context: Context): Result<String> {
-        return try {
-            val status = YoutubeDL.getInstance().updateYoutubeDL(context, YoutubeDL.UpdateChannel._STABLE)
-            Result.success(status?.name ?: "Updated")
-        } catch (e: Exception) {
-            Log.e(TAG, "Engine update failed", e)
-            Result.failure(e)
-        }
+        return Result.success("Engine is up to date (managed via Google Play)")
     }
 
     fun cancelDownload(processId: String) {

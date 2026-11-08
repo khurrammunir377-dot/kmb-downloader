@@ -29,9 +29,19 @@ android {
     }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("kmb-release-key.jks")
+            storePassword = "kmbdownloader"
+            keyAlias = "kmb_downloader"
+            keyPassword = "kmbdownloader"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

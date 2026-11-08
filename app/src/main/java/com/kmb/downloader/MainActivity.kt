@@ -47,9 +47,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Start background clipboard listener to capture every copied video link
-        com.kmb.downloader.download.ClipboardMonitorService.start(this)
-
         handleIncomingIntent(intent)
 
         lifecycleScope.launch {
