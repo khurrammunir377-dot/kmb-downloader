@@ -108,6 +108,8 @@ class DownloadService : Service() {
 
         serviceScope.launch {
             val logRingBuffer = java.util.ArrayDeque<String>(40)
+            val internalOutputDir = DownloadHelper.getDownloadDir(this@DownloadService)
+            var targetUrl: String = url
             try {
                 // Wait up to 60s for engine initialization if not ready yet
                 val engineReady = withTimeoutOrNull(60_000L) {
@@ -126,9 +128,7 @@ class DownloadService : Service() {
                 DownloadTracker.updateProgress(itemId, 0f, "Connecting…")
                 updateNotification(notifId, itemId, "Connecting to server…", 0, indeterminate = true)
 
-                // Safe output directory in app internal storage (100% writable Linux subprocess)
-                val internalOutputDir = DownloadHelper.getDownloadDir(this@DownloadService)
-                val targetUrl = DownloadHelper.resolveDirectStreamIfSpecial(url)
+                targetUrl = DownloadHelper.resolveDirectStreamIfSpecial(url)
                 val request = DownloadHelper.buildRequest(targetUrl, quality, internalOutputDir, timeRange)
 
                 val existingFiles = internalOutputDir.listFiles()?.map { it.absolutePath }?.toSet() ?: emptySet()
@@ -238,20 +238,62 @@ class DownloadService : Service() {
             } catch (e: Throwable) {
                 Log.e(TAG, "Download error for item $itemId: ${e.message}", e)
 
-                // Extract human-readable error from logs
-                val errorLine = synchronized(logRingBuffer) {
-                    logRingBuffer.filter { it.contains("ERROR:", ignoreCase = true) }
-                        .lastOrNull()
-                        ?.substringAfter("ERROR:")
-                        ?.trim()
-                        ?.take(80)
+                var fallbackHandled = false
+                try {
+                    val fallbackDirectUrl = if (targetUrl.startsWith("http") && (targetUrl.contains("licdn.com") || targetUrl.contains(".mp4") || targetUrl.contains(".m3u8"))) {
+                        targetUrl
+                    } else if (url.contains("linkedin.com") || url.contains("lnkd.in") || url.contains("licdn.com")) {
+                        DownloadHelper.resolveLinkedInVideoStream(url)
+                    } else null
+
+                    if (!fallbackDirectUrl.isNullOrBlank() && fallbackDirectUrl.startsWith("http")) {
+                        Log.i(TAG, "Attempting direct HTTP stream fallback for item $itemId: $fallbackDirectUrl")
+                        updateNotification(notifId, itemId, "Direct downloading from CDN…", 0, indeterminate = true)
+                        DownloadTracker.updateProgress(itemId, 5f, "Downloading directly…")
+                        val fallbackFile = File(internalOutputDir, "media_${itemId}_${System.currentTimeMillis()}.mp4")
+                        val ok = DownloadHelper.downloadDirectHttp(fallbackDirectUrl, fallbackFile) { prog ->
+                            DownloadTracker.updateProgress(itemId, prog, "Downloading… ${prog.toInt()}%")
+                            updateNotification(notifId, itemId, "Downloading… ${prog.toInt()}%", prog.toInt(), isOngoing = true, indeterminate = false)
+                        }
+                        if (ok && fallbackFile.exists() && fallbackFile.length() > 0L) {
+                            val savedPath = DownloadHelper.saveToPublicStorage(this@DownloadService, fallbackFile, quality == "Audio Only") ?: fallbackFile.absolutePath
+                            val sizeStr = "%.1f MB".format(fallbackFile.length() / (1024f * 1024f))
+                            updateDbItem(itemId) { prev ->
+                                val chosenTitle = if (prev.title.isNotBlank() && prev.title != "Downloading…") prev.title else "LinkedIn Video"
+                                prev.copy(
+                                    title = chosenTitle,
+                                    status = "Completed",
+                                    progress = 100f,
+                                    filePath = savedPath,
+                                    fileSize = sizeStr
+                                )
+                            }
+                            DownloadTracker.remove(itemId)
+                            updateNotification(notifId, itemId, "✓ Download complete", 100, isOngoing = false, indeterminate = false)
+                            Log.i(TAG, "Direct HTTP fallback succeeded: $savedPath")
+                            fallbackHandled = true
+                        }
+                    }
+                } catch (fallbackEx: Throwable) {
+                    Log.e(TAG, "Direct HTTP fallback error: ${fallbackEx.message}", fallbackEx)
                 }
 
-                val displayError = errorLine ?: (e.message ?: "Download failed").take(60)
+                if (!fallbackHandled) {
+                    // Extract human-readable error from logs
+                    val errorLine = synchronized(logRingBuffer) {
+                        logRingBuffer.filter { it.contains("ERROR:", ignoreCase = true) }
+                            .lastOrNull()
+                            ?.substringAfter("ERROR:")
+                            ?.trim()
+                            ?.take(80)
+                    }
 
-                updateDbItem(itemId) { it.copy(status = "Failed", fileSize = displayError, progress = 0f) }
-                DownloadTracker.remove(itemId)
-                updateNotification(notifId, itemId, "Failed: $displayError", 0, isOngoing = false, indeterminate = false)
+                    val displayError = errorLine ?: (e.message ?: "Download failed").take(60)
+
+                    updateDbItem(itemId) { it.copy(status = "Failed", fileSize = displayError, progress = 0f) }
+                    DownloadTracker.remove(itemId)
+                    updateNotification(notifId, itemId, "Failed: $displayError", 0, isOngoing = false, indeterminate = false)
+                }
             } finally {
                 if (itemId > 0) activeTasks.remove(itemId)
                 activeJobsCount.decrementAndGet()

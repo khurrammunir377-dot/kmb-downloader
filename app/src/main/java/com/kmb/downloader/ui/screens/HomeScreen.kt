@@ -1148,6 +1148,7 @@ fun PlatformIconBadge(
     val isWhatsApp = norm.contains("whatsapp")
     val isPinterest = norm.contains("pinterest")
     val isReddit = norm.contains("reddit")
+    val isLinkedIn = norm.contains("linkedin") || norm.contains("lnkd")
 
     val (badgeBg, badgeLabel) = when {
         isYouTube -> Pair(Color(0xFFFF0000), "▶")
@@ -1158,6 +1159,7 @@ fun PlatformIconBadge(
         isWhatsApp -> Pair(Color(0xFF25D366), "💬")
         isPinterest -> Pair(Color(0xFFE60023), "P")
         isReddit -> Pair(Color(0xFFFF4500), "🔴")
+        isLinkedIn -> Pair(Color(0xFF0A66C2), "in")
         else -> Pair(KmbPrimary, platform.take(2).uppercase())
     }
 

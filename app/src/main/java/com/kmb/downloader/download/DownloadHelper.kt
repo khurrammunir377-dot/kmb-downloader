@@ -29,6 +29,7 @@ object DownloadHelper {
         "instagram.com", "reel", "reels",
         "facebook.com", "fb.watch", "fb.com",
         "twitter.com", "x.com",
+        "linkedin.com", "lnkd.in", "licdn.com",
         "reddit.com",
         "vimeo.com",
         "dailymotion.com",
@@ -114,6 +115,12 @@ object DownloadHelper {
                     val v = uri.getQueryParameter("v")
                     if (!v.isNullOrBlank()) "https://www.facebook.com/watch/?v=$v" else trimmed
                 }
+                trimmed.contains("linkedin.com") || trimmed.contains("lnkd.in") -> {
+                    if (trimmed.contains("?")) {
+                        val base = trimmed.substringBefore("?")
+                        if (base.contains("/posts/") || base.contains("/feed/update/")) base else trimmed
+                    } else trimmed
+                }
                 trimmed.contains("instagram.com/reel/") ||
                 trimmed.contains("instagram.com/p/") ||
                 trimmed.contains("tiktok.com") ||
@@ -137,6 +144,7 @@ object DownloadHelper {
             lower.contains("instagram.com") -> "Instagram"
             lower.contains("facebook.com") || lower.contains("fb.watch") || lower.contains("fb.com") -> "Facebook"
             lower.contains("twitter.com") || lower.contains("x.com") -> "X / Twitter"
+            lower.contains("linkedin.com") || lower.contains("lnkd.in") || lower.contains("licdn.com") -> "LinkedIn"
             lower.contains("threads.net") -> "Threads"
             lower.contains("reddit.com") -> "Reddit"
             lower.contains("vimeo.com") -> "Vimeo"
@@ -267,8 +275,168 @@ object DownloadHelper {
             } catch (e: Exception) {
                 Log.w(TAG, "BBC resolver fallback to original url: ${e.message}")
             }
+        } else if (clean.contains("linkedin.com") || clean.contains("licdn.com") || clean.contains("lnkd.in")) {
+            try {
+                val resolved = resolveLinkedInVideoStream(clean)
+                if (!resolved.isNullOrBlank()) {
+                    Log.i(TAG, "Resolved LinkedIn video stream: $resolved")
+                    return@withContext resolved
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "LinkedIn resolver fallback to original url: ${e.message}")
+            }
         }
         return@withContext clean
+    }
+
+    /**
+     * Resolves direct video stream URL for LinkedIn posts / feed updates / short links.
+     * Extracts high-quality MP4 / HLS streams hosted on dms.licdn.com.
+     */
+    suspend fun resolveLinkedInVideoStream(rawUrl: String): String? = withContext(Dispatchers.IO) {
+        val clean = rawUrl.trim()
+        if (clean.contains("dms.licdn.com") || (clean.endsWith(".mp4") && clean.contains("licdn.com"))) {
+            return@withContext clean
+        }
+
+        try {
+            // 1. Follow redirects for lnkd.in or short links
+            var currentUrl = clean
+            for (step in 0 until 5) {
+                val u = java.net.URL(currentUrl)
+                val headConn = (u.openConnection() as java.net.HttpURLConnection).apply {
+                    instanceFollowRedirects = false
+                    connectTimeout = 8000
+                    readTimeout = 8000
+                    requestMethod = "HEAD"
+                    setRequestProperty("User-Agent", "facebookexternalhit/1.3 (+http://www.facebook.com/externalhit_uatext.php)")
+                }
+                val code = headConn.responseCode
+                headConn.disconnect()
+                if (code in 300..399) {
+                    val loc = headConn.getHeaderField("Location") ?: break
+                    currentUrl = if (loc.startsWith("http")) loc else java.net.URL(u, loc).toString()
+                } else {
+                    break
+                }
+            }
+
+            // 2. Fetch page HTML using social crawler User-Agent (bypasses authwall)
+            val conn = (java.net.URL(currentUrl).openConnection() as java.net.HttpURLConnection).apply {
+                instanceFollowRedirects = true
+                connectTimeout = 10000
+                readTimeout = 12000
+                setRequestProperty("User-Agent", "facebookexternalhit/1.3 (+http://www.facebook.com/externalhit_uatext.php)")
+                setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+            }
+
+            val html = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            conn.disconnect()
+
+            if (html.isBlank()) return@withContext null
+
+            // 3. Check for og:video, og:video:secure_url, or og:video:url
+            val ogVideoRegex = Regex("<meta\\s+[^>]*property=[\"']og:video(?::secure_url|:url)?[\"'][^>]*content=[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
+            val ogMatch = ogVideoRegex.find(html)?.groupValues?.get(1)
+            if (!ogMatch.isNullOrBlank()) {
+                val unescaped = unescapeHtmlAndJson(ogMatch)
+                if (unescaped.startsWith("http")) return@withContext unescaped
+            }
+
+            // 4. Check for data-sources in video tag
+            val dataSourcesRegex = Regex("data-sources=[\"'](\\[[^\\]]+\\])[\"']", RegexOption.IGNORE_CASE)
+            val dsMatch = dataSourcesRegex.find(html)?.groupValues?.get(1)
+            if (!dsMatch.isNullOrBlank()) {
+                val srcRegex = Regex("[\"']src[\"']\\s*:\\s*[\"']([^\"']+)[\"']")
+                val src = srcRegex.find(unescapeHtmlAndJson(dsMatch))?.groupValues?.get(1)
+                if (!src.isNullOrBlank() && src.startsWith("http")) {
+                    return@withContext unescapeHtmlAndJson(src)
+                }
+            }
+
+            // 5. Check for any dms.licdn.com video URL in HTML / script tags
+            val dmsRegex = Regex("(https://dms\\.licdn\\.com/[^\"'\\s<>&]+(?:mp4|m3u8|playlist)[^\"'\\s<>&]*)", RegexOption.IGNORE_CASE)
+            val dmsMatch = dmsRegex.find(html)?.groupValues?.get(1)
+            if (!dmsMatch.isNullOrBlank()) {
+                val unescaped = unescapeHtmlAndJson(dmsMatch)
+                if (unescaped.startsWith("http")) return@withContext unescaped
+            }
+
+            // 6. Generic dms.licdn.com stream regex
+            val genericDms = Regex("(https://dms\\.licdn\\.com/playlist/vid/[^\"'\\s<>&]+)", RegexOption.IGNORE_CASE)
+            val genMatch = genericDms.find(html)?.groupValues?.get(1)
+            if (!genMatch.isNullOrBlank()) {
+                val unescaped = unescapeHtmlAndJson(genMatch)
+                if (unescaped.startsWith("http")) return@withContext unescaped
+            }
+
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve LinkedIn stream: ${e.message}", e)
+            null
+        }
+    }
+
+    private fun unescapeHtmlAndJson(input: String): String {
+        return input.replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("\\u0026", "&")
+            .replace("\\/", "/")
+    }
+
+    /**
+     * Direct high-speed streaming HTTP download engine.
+     * Serves as reliable fallback when yt-dlp cannot parse direct CDN media streams.
+     */
+    fun downloadDirectHttp(
+        url: String,
+        outputFile: File,
+        onProgress: (Float) -> Unit
+    ): Boolean {
+        var conn: java.net.HttpURLConnection? = null
+        try {
+            conn = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 15000
+                readTimeout = 30000
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                setRequestProperty("Accept", "*/*")
+            }
+            val code = conn.responseCode
+            if (code !in 200..299) return false
+            val totalLength = conn.contentLengthLong
+            outputFile.parentFile?.mkdirs()
+            conn.inputStream.use { input ->
+                outputFile.outputStream().use { output ->
+                    val buffer = ByteArray(32768)
+                    var bytesRead: Int
+                    var totalRead = 0L
+                    var lastProgressUpdate = 0L
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        totalRead += bytesRead
+                        val now = System.currentTimeMillis()
+                        if (totalLength > 0 && now - lastProgressUpdate > 250) {
+                            lastProgressUpdate = now
+                            val prog = (totalRead * 100f / totalLength).coerceIn(0f, 99f)
+                            onProgress(prog)
+                        }
+                    }
+                }
+            }
+            onProgress(100f)
+            return outputFile.exists() && outputFile.length() > 0L
+        } catch (e: Exception) {
+            Log.e(TAG, "Direct HTTP download error: ${e.message}", e)
+            outputFile.delete()
+            return false
+        } finally {
+            conn?.disconnect()
+        }
     }
 
     private fun resolveBbcArticleStream(articleUrl: String): String? {

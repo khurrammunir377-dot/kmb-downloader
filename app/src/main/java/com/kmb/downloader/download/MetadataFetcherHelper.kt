@@ -40,10 +40,13 @@ object MetadataFetcherHelper {
                 connectTimeout = 4000
                 readTimeout = 4000
                 instanceFollowRedirects = true
-                setRequestProperty(
-                    "User-Agent",
+                val isLinkedIn = rawUrl.contains("linkedin.com") || rawUrl.contains("lnkd.in") || rawUrl.contains("licdn.com")
+                val ua = if (isLinkedIn) {
+                    "facebookexternalhit/1.3 (+http://www.facebook.com/externalhit_uatext.php)"
+                } else {
                     "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
-                )
+                }
+                setRequestProperty("User-Agent", ua)
                 setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 setRequestProperty("Accept-Language", "en-US,en;q=0.9,ur;q=0.8,hi;q=0.7")
             }
