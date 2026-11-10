@@ -147,16 +147,9 @@ fun UniversalTrimmerView(snackbarHostState: SnackbarHostState) {
                     onClick = {
                         isProcessing = true
                         scope.launch {
-                            val path = getPathFromUri(context, uri)
-                            if (path == null) {
-                                isProcessing = false
-                                snackbarHostState.showSnackbar("Cannot resolve video path.")
-                                return@launch
-                            }
-
                             val res = VideoTrimmerHelper.trimMedia(
                                 context = context,
-                                inputFilePath = path,
+                                inputFilePath = uri.toString(),
                                 startTime = startTime,
                                 endTime = endTime,
                                 isAudioOnly = false

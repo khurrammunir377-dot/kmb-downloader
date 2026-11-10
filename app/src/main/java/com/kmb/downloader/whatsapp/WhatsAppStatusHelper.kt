@@ -344,29 +344,40 @@ object WhatsAppStatusHelper {
         val mimeType = if (isVideo) "video/mp4" else "image/jpeg"
         val extension = if (isVideo) ".mp4" else ".jpg"
         val filename = "KMB_Status_${System.currentTimeMillis()}$extension"
-        val relativePath = if (isVideo) "Movies/KMB Downloader" else "Pictures/KMB Downloader"
 
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return try {
+                val baseDir = Environment.getExternalStoragePublicDirectory(
+                    if (isVideo) Environment.DIRECTORY_MOVIES else Environment.DIRECTORY_PICTURES
+                )
+                val targetDir = File(baseDir, "KMB Downloader")
+                if (!targetDir.exists()) targetDir.mkdirs()
+                val destFile = File(targetDir, filename)
+                resolver.openInputStream(item.uri)?.use { input ->
+                    java.io.FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                MediaScannerConnection.scanFile(context, arrayOf(destFile.absolutePath), arrayOf(mimeType), null)
+                destFile.exists() && destFile.length() > 0L
+            } catch (e: Exception) {
+                Log.e(TAG, "Legacy save status failed", e)
+                false
+            }
+        }
+
+        val relativePath = if (isVideo) "Movies/KMB Downloader" else "Pictures/KMB Downloader"
         val collection = if (isVideo) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            } else {
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            }
+            MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            } else {
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            }
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         }
 
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }
+            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
 
         val itemUri = resolver.insert(collection, values) ?: return false
@@ -377,17 +388,9 @@ object WhatsAppStatusHelper {
                     input.copyTo(output)
                 }
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                resolver.update(itemUri, values, null, null)
-            }
-            MediaScannerConnection.scanFile(
-                context,
-                arrayOf(itemUri.toString()),
-                arrayOf(mimeType),
-                null
-            )
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(itemUri, values, null, null)
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save status to gallery", e)
@@ -399,9 +402,19 @@ object WhatsAppStatusHelper {
     fun shareStatus(context: Context, item: WhatsAppStatusItem) {
         try {
             val mimeType = if (item.isVideo) "video/mp4" else "image/jpeg"
+            val shareUri = if (item.uri.scheme == "file") {
+                val f = File(item.uri.path ?: return)
+                androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    f
+                )
+            } else {
+                item.uri
+            }
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = mimeType
-                putExtra(Intent.EXTRA_STREAM, item.uri)
+                putExtra(Intent.EXTRA_STREAM, shareUri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }

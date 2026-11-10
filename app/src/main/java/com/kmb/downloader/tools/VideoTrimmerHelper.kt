@@ -50,7 +50,7 @@ object VideoTrimmerHelper {
                             val path = cursor.getString(idx)
                             if (!path.isNullOrBlank()) {
                                 val f = File(path)
-                                if (f.exists() && f.length() > 0L) return f
+                                if (f.exists() && f.canRead() && f.length() > 0L) return f
                             }
                         }
                     }

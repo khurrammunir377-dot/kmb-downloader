@@ -5,17 +5,20 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.segmentation.Segmentation
-import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import java.nio.ByteBuffer
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.max
@@ -53,51 +56,50 @@ object ImageBgRemoverHelper {
     }
 
     /**
-     * Extracts a high-definition segmentation mask using on-device Google ML Kit.
-     * Raw size mask is enabled so the mask output matches exact bitmap resolution.
+     * Extracts a high-definition segmentation mask using on-device Google ML Kit Subject Segmentation.
+     * Supports portraits, objects, and products with 16KB page-size compatibility via Play Services.
      */
     suspend fun extractSegmentationMask(
         inputBitmap: Bitmap
     ): Result<SegmentationResult> = withContext(Dispatchers.Default) {
+        var segmenter: com.google.mlkit.vision.segmentation.subject.SubjectSegmenter? = null
         try {
             val scaledBitmap = prepareBitmap(inputBitmap, 1280)
-            val options = SelfieSegmenterOptions.Builder()
-                .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
-                .enableRawSizeMask()
+            val options = SubjectSegmenterOptions.Builder()
+                .enableForegroundConfidenceMask()
                 .build()
 
-            val segmenter = Segmentation.getClient(options)
+            segmenter = SubjectSegmentation.getClient(options)
             val image = InputImage.fromBitmap(scaledBitmap, 0)
 
-            val mask = suspendCancellableCoroutine { continuation ->
+            val segResult = suspendCancellableCoroutine { continuation ->
                 segmenter.process(image)
-                    .addOnSuccessListener { segmentationMask ->
-                        continuation.resume(segmentationMask)
+                    .addOnSuccessListener { result ->
+                        continuation.resume(result)
                     }
                     .addOnFailureListener { e ->
                         continuation.resumeWithException(e)
                     }
             }
 
-            val maskBuffer: ByteBuffer = mask.buffer
-            val maskWidth = mask.width
-            val maskHeight = mask.height
+            val maskBuffer = segResult.foregroundConfidenceMask
+                ?: return@withContext Result.failure(Exception("No foreground subject detected"))
+            val maskWidth = scaledBitmap.width
+            val maskHeight = scaledBitmap.height
             maskBuffer.rewind()
 
             val totalPixels = maskWidth * maskHeight
             val floatMask = FloatArray(totalPixels)
             for (i in 0 until totalPixels) {
-                if (maskBuffer.hasRemaining()) {
-                    floatMask[i] = maskBuffer.getFloat()
-                } else {
-                    floatMask[i] = 0f
-                }
+                floatMask[i] = if (maskBuffer.hasRemaining()) maskBuffer.get() else 0f
             }
 
             Result.success(SegmentationResult(scaledBitmap, floatMask, maskWidth, maskHeight))
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "extractSegmentationMask error: ${e.message}", e)
-            Result.failure(e)
+            Result.failure(Exception(e.message ?: "Segmentation failed"))
+        } finally {
+            try { segmenter?.close() } catch (_: Throwable) {}
         }
     }
 
@@ -286,22 +288,34 @@ object ImageBgRemoverHelper {
      * Saves processed image into Android MediaStore Pictures/KMB AI Studio.
      */
     suspend fun saveToGallery(context: Context, bitmap: Bitmap, title: String): Result<Uri> = withContext(Dispatchers.IO) {
-        val resolver = context.contentResolver
         val filename = "KMB_AI_${System.currentTimeMillis()}_$title.png"
 
-        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        } else {
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return@withContext try {
+                val picturesDir = File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                    "KMB AI Studio"
+                )
+                if (!picturesDir.exists()) picturesDir.mkdirs()
+                val outFile = File(picturesDir, filename)
+                FileOutputStream(outFile).use { stream ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                }
+                MediaScannerConnection.scanFile(context, arrayOf(outFile.absolutePath), arrayOf("image/png"), null)
+                Result.success(Uri.fromFile(outFile))
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
+
+        val resolver = context.contentResolver
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
 
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, filename)
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/KMB AI Studio")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/KMB AI Studio")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
         }
 
         val uri = resolver.insert(collection, values)
@@ -311,11 +325,9 @@ object ImageBgRemoverHelper {
             resolver.openOutputStream(uri)?.use { stream ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                values.clear()
-                values.put(MediaStore.Images.Media.IS_PENDING, 0)
-                resolver.update(uri, values, null, null)
-            }
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
             Result.success(uri)
         } catch (e: Exception) {
             try { resolver.delete(uri, null, null) } catch (_: Exception) {}

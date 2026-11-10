@@ -125,6 +125,27 @@ fun WhatsAppStatusScreen(
         }
     }
 
+    val legacyStorageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        viewModel.checkAndLoad(context)
+    }
+
+    LaunchedEffect(Unit) {
+        if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.Q) {
+            val perms = mutableListOf(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+            if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.P) {
+                perms.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+            val missing = perms.filter {
+                androidx.core.content.ContextCompat.checkSelfPermission(context, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            if (missing.isNotEmpty()) {
+                legacyStorageLauncher.launch(missing.toTypedArray())
+            }
+        }
+    }
+
     LaunchedEffect(message) {
         message?.let {
             snackbarHostState.showSnackbar(it)

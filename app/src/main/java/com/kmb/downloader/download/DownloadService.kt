@@ -62,8 +62,8 @@ class DownloadService : Service() {
         val itemId = intent?.getLongExtra(EXTRA_ITEM_ID, -1L) ?: -1L
         val notifId = if (itemId > 0) (itemId % 10000 + 2000).toInt() else 2001
 
-        // Immediate startForeground call to satisfy Android 5-second foreground requirement
-        startForegroundSafely(notifId, buildNotification(notifId, itemId, "Starting KMB Downloader…", 0, indeterminate = true))
+        // Immediate startForeground call using a dedicated service notif ID so completion notifications survive stopForeground
+        startForegroundSafely(FOREGROUND_NOTIF_ID, buildNotification(FOREGROUND_NOTIF_ID, -1L, "KMB Downloader running…", 0, indeterminate = true))
 
         if (intent == null) {
             checkAndStopIfIdle()
@@ -431,6 +431,7 @@ class DownloadService : Service() {
 
     companion object {
         private const val TAG = "DownloadService"
+        private const val FOREGROUND_NOTIF_ID = 1001
         const val CHANNEL_ID = "kmb_downloads"
         const val ACTION_CANCEL = "com.kmb.downloader.CANCEL"
         const val EXTRA_URL = "url"

@@ -176,12 +176,10 @@ fun HomeScreen(
     val hasReadyLink = url.isNotBlank() || latestPending != null
     val readyPlatform = if (url.isNotBlank()) "URL Input" else latestPending?.platform
 
-    val permissionLauncher = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission(),
-            onResult = { /* Handled */ }
-        )
-    } else null
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { /* Handled */ }
+    )
 
     LaunchedEffect(message) {
         message?.let {
@@ -472,11 +470,15 @@ fun HomeScreen(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             try {
                                 if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                    permissionLauncher?.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 }
-                            } catch (e: Throwable) {
-                                // Ignore permission prompt errors
-                            }
+                            } catch (_: Throwable) {}
+                        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                            try {
+                                if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                }
+                            } catch (_: Throwable) {}
                         }
                         viewModel.downloadCurrentOrClipboard()
                     }
@@ -1037,7 +1039,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v4.0.4", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v4.0.5", fontWeight = FontWeight.Bold)
                 }
             },
             text = {

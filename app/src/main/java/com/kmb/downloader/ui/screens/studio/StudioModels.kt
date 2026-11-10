@@ -78,12 +78,56 @@ data class StudioItem(
     val gradient: List<Color>
 )
 
-suspend fun loadBitmapFromUri(context: Context, uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
+suspend fun loadBitmapFromUri(context: Context, uri: Uri, maxDim: Int = 2048): Bitmap? = withContext(Dispatchers.IO) {
     try {
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream)
+        var rotationDegrees = 0f
+        try {
+            context.contentResolver.openInputStream(uri)?.use { exifStream ->
+                val exif = android.media.ExifInterface(exifStream)
+                rotationDegrees = when (
+                    exif.getAttributeInt(
+                        android.media.ExifInterface.TAG_ORIENTATION,
+                        android.media.ExifInterface.ORIENTATION_NORMAL
+                    )
+                ) {
+                    android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                    android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                    android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                    else -> 0f
+                }
+            }
+        } catch (_: Throwable) {}
+
+        val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use { boundsStream ->
+            BitmapFactory.decodeStream(boundsStream, null, boundsOpts)
         }
-    } catch (_: Exception) {
+        val origW = boundsOpts.outWidth
+        val origH = boundsOpts.outHeight
+        if (origW <= 0 || origH <= 0) return@withContext null
+
+        var inSampleSize = 1
+        while (origW / inSampleSize > maxDim || origH / inSampleSize > maxDim) {
+            inSampleSize *= 2
+        }
+
+        val decodeOpts = BitmapFactory.Options().apply {
+            this.inSampleSize = inSampleSize
+            this.inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val decoded = context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, decodeOpts)
+        } ?: return@withContext null
+
+        if (rotationDegrees != 0f) {
+            val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees) }
+            val rotated = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+            if (rotated != decoded) decoded.recycle()
+            rotated
+        } else {
+            decoded
+        }
+    } catch (_: Throwable) {
         null
     }
 }
@@ -94,11 +138,17 @@ fun getPathFromUri(context: Context, uri: Uri): String? {
     try {
         context.contentResolver.query(uri, proj, null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
-                val idx = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DATA)
-                return cursor.getString(idx)
+                val idx = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DATA)
+                if (idx != -1) {
+                    val path = cursor.getString(idx)
+                    if (!path.isNullOrBlank()) {
+                        val f = File(path)
+                        if (f.exists() && f.canRead() && f.length() > 0L) return path
+                    }
+                }
             }
         }
-    } catch (_: Exception) {}
+    } catch (_: Throwable) {}
 
     return try {
         val temp = File(context.cacheDir, "temp_media_${System.currentTimeMillis()}.mp4")
@@ -108,7 +158,7 @@ fun getPathFromUri(context: Context, uri: Uri): String? {
             }
         }
         temp.absolutePath
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 }

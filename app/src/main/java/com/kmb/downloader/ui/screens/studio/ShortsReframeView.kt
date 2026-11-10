@@ -92,16 +92,9 @@ fun ShortsReframeView(snackbarHostState: SnackbarHostState) {
                     onClick = {
                         isProcessing = true
                         scope.launch {
-                            val path = getPathFromUri(context, uri)
-                            if (path == null) {
-                                isProcessing = false
-                                snackbarHostState.showSnackbar("Cannot resolve video path.")
-                                return@launch
-                            }
-
                             val res = VideoTrimmerHelper.trimMedia(
                                 context = context,
-                                inputFilePath = path,
+                                inputFilePath = uri.toString(),
                                 startTime = "00:00",
                                 endTime = "00:59",
                                 isAudioOnly = false

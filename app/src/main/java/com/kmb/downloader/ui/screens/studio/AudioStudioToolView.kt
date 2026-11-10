@@ -171,16 +171,9 @@ fun AudioStudioToolView(snackbarHostState: SnackbarHostState) {
                     onClick = {
                         isProcessing = true
                         scope.launch {
-                            val path = getPathFromUri(context, uri)
-                            if (path == null) {
-                                isProcessing = false
-                                snackbarHostState.showSnackbar("Cannot resolve video path.")
-                                return@launch
-                            }
-
                             val res = VideoTrimmerHelper.extractAndSaveAudio(
                                 context = context,
-                                inputFilePath = path,
+                                inputFilePath = uri.toString(),
                                 startTime = startTime,
                                 endTime = endTime,
                                 customTitle = customTitle.ifBlank { "KMB_Audio_${System.currentTimeMillis()}" },
