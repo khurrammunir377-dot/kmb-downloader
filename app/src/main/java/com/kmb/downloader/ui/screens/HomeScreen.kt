@@ -463,10 +463,6 @@ fun HomeScreen(
                     hasReadyLink = hasReadyLink,
                     platformText = readyPlatform,
                     onClick = {
-                        if (com.kmb.downloader.download.DownloadHelper.isYouTubeLink(url)) {
-                            showYouTubePolicyDialog = true
-                            return@RotatingDownloadOrb
-                        }
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             try {
                                 if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -819,7 +815,7 @@ fun HomeScreen(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "No saved links yet.\n\nCopy any TikTok, Instagram, Facebook, LinkedIn, or X link anywhere on your phone. It will automatically appear here so you can download anytime.",
+                                text = "No saved links yet.\n\nCopy any YouTube Shorts, TikTok, Instagram, Facebook, LinkedIn, or X link anywhere on your phone. It will automatically appear here so you can download anytime.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(14.dp)
@@ -1039,7 +1035,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v4.0.5", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v4.0.6", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
@@ -1051,7 +1047,7 @@ fun HomeScreen(
                     )
                     Text(
                         "• All-in-One video and audio downloader\n" +
-                        "• Supports TikTok, Instagram, Facebook, X, LinkedIn, and 1000+ sites\n" +
+                        "• Supports YouTube, Shorts, TikTok, Instagram, Facebook, X, LinkedIn, and 1000+ sites\n" +
                         "• Precision Time-Range Trimming (e.g. 01:50 to 02:55)\n" +
                         "• Full WhatsApp & WhatsApp Business Status Saver\n" +
                         "• Direct phone Gallery MediaStore integration\n" +

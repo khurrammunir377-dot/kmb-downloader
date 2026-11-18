@@ -29,6 +29,7 @@ object DownloadHelper {
     }
 
     private val SOCIAL_PATTERNS = listOf(
+        "youtube.com", "youtu.be", "shorts",
         "tiktok.com", "vm.tiktok.com", "vt.tiktok.com",
         "instagram.com", "reel", "reels",
         "facebook.com", "fb.watch", "fb.com",
@@ -56,7 +57,6 @@ object DownloadHelper {
      */
     fun isDownloadableLink(text: String): Boolean {
         val lower = text.lowercase().trim()
-        if (isYouTubeLink(lower)) return false
         if (!lower.startsWith("http://") && !lower.startsWith("https://")) return false
         if (!lower.contains(".")) return false
         val staticNonMedia = listOf(".png", ".jpg", ".jpeg", ".webp", ".svg", ".css", ".js", ".json", ".xml")
@@ -112,6 +112,14 @@ object DownloadHelper {
         return try {
             val uri = Uri.parse(trimmed)
             when {
+                trimmed.contains("youtube.com/shorts/") -> {
+                    val shortId = trimmed.substringAfter("shorts/").substringBefore("?").substringBefore("/")
+                    if (shortId.isNotBlank()) "https://www.youtube.com/watch?v=$shortId" else trimmed
+                }
+                trimmed.contains("youtu.be/") -> {
+                    val id = trimmed.substringAfter("youtu.be/").substringBefore("?").substringBefore("/")
+                    if (id.isNotBlank()) "https://www.youtube.com/watch?v=$id" else trimmed
+                }
                 trimmed.contains("youtube.com/watch") -> {
                     val v = uri.getQueryParameter("v")
                     if (!v.isNullOrBlank()) "https://www.youtube.com/watch?v=$v" else trimmed
@@ -144,6 +152,7 @@ object DownloadHelper {
     fun detectPlatform(url: String): String {
         val lower = url.lowercase()
         return when {
+            lower.contains("youtube.com/shorts") || lower.contains("/shorts/") -> "YouTube Shorts"
             lower.contains("youtube.com") || lower.contains("youtu.be") -> "YouTube"
             lower.contains("tiktok.com") -> "TikTok"
             lower.contains("instagram.com") -> "Instagram"
@@ -196,6 +205,8 @@ object DownloadHelper {
             request.addOption("--merge-output-format", "mp4")
         }
 
+        // Pass mobile & web player client to prevent YouTube bot check / 403 blocks
+        request.addOption("--extractor-args", "youtube:player_client=android,web")
 
         // Reliability and speed options
         request.addOption("--no-playlist")

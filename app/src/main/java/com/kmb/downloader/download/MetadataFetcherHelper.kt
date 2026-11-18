@@ -34,6 +34,32 @@ object MetadataFetcherHelper {
      * Fast network probe to extract og:title, og:description, and thumbnail from a URL.
      */
     suspend fun fetchMetadata(rawUrl: String): MediaMetadata? = withContext(Dispatchers.IO) {
+        val isYouTube = rawUrl.contains("youtube.com") || rawUrl.contains("youtu.be")
+        if (isYouTube) {
+            try {
+                val oembedUrl = "https://www.youtube.com/oembed?url=" + java.net.URLEncoder.encode(rawUrl, "UTF-8") + "&format=json"
+                val conn = (URL(oembedUrl).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 3500
+                    readTimeout = 3500
+                    setRequestProperty("User-Agent", "Mozilla/5.0")
+                }
+                if (conn.responseCode == 200) {
+                    val resp = conn.inputStream.bufferedReader().use { it.readText() }
+                    val titleMatch = Pattern.compile("\"title\":\"([^\"]+)\"").matcher(resp)
+                    val thumbMatch = Pattern.compile("\"thumbnail_url\":\"([^\"]+)\"").matcher(resp)
+                    val title = if (titleMatch.find()) cleanHtmlText(titleMatch.group(1)) else null
+                    val thumb = if (thumbMatch.find()) thumbMatch.group(1).replace("\\/", "/") else null
+                    if (!title.isNullOrBlank()) {
+                        return@withContext MediaMetadata(
+                            title = title,
+                            description = if (rawUrl.contains("/shorts/")) "YouTube Short" else "YouTube Video",
+                            author = if (rawUrl.contains("/shorts/")) "YouTube Shorts" else "YouTube",
+                            thumbnail = thumb
+                        )
+                    }
+                }
+            } catch (_: Exception) {}
+        }
         try {
             val url = URL(rawUrl)
             val connection = (url.openConnection() as HttpURLConnection).apply {
