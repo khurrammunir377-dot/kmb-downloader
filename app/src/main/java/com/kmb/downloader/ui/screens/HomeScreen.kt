@@ -1035,7 +1035,7 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, contentDescription = null, tint = KmbSecondary)
                     Spacer(Modifier.width(8.dp))
-                    Text("KMB Downloader v4.0.6", fontWeight = FontWeight.Bold)
+                    Text("KMB Downloader v4.0.7", fontWeight = FontWeight.Bold)
                 }
             },
             text = {

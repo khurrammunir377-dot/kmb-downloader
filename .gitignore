@@ -11,3 +11,5 @@ local.properties
 app/build/
 .kotlin/
 *.aab
+
+*_Universal.apk
